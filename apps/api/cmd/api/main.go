@@ -50,13 +50,14 @@ func main() {
 	dashboardSvc := services.NewDashboardService(repoRepo, techRepo, reportRepo)
 	repoSvc := services.NewRepositoryService(repoRepo)
 	radarSvc := services.NewRadarService(techRepo)
+	radarCalc := services.NewRadarCalculator(techRepo, db)
 	analyticsSvc := services.NewAnalyticsService(repoRepo, techRepo)
 	reportSvc := services.NewReportService(reportRepo)
 
 	// Handlers
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 	repoHandler := handlers.NewRepositoryHandler(repoSvc)
-	radarHandler := handlers.NewRadarHandler(radarSvc)
+	radarHandler := handlers.NewRadarHandler(radarSvc, radarCalc)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 
@@ -66,6 +67,9 @@ func main() {
 	aiSvc := services.NewAIService(gClient, orClient, repoRepo, techRepo, db)
 	aiHandler := handlers.NewAIHandler(aiSvc)
 
+	healthSvc := services.NewHealthService(ghClient, repoRepo, db)
+	healthHandler := handlers.NewHealthHandler(healthSvc)
+
 	// Router
 	r := gin.Default()
 	api := r.Group("/api")
@@ -74,12 +78,15 @@ func main() {
 		api.GET("/repositories", repoHandler.ListRepositories)
 		api.GET("/repositories/:id", repoHandler.GetRepository)
 		api.GET("/repositories/:id/summary", repoHandler.GetSummary)
+		api.GET("/repositories/:id/snapshots", repoHandler.GetSnapshots)
 		api.GET("/radar", radarHandler.GetRadar)
+		api.POST("/radar/calculate", radarHandler.CalculateRadar)
 		api.GET("/analytics", analyticsHandler.GetAnalytics)
 		api.GET("/reports", reportHandler.ListReports)
 		api.GET("/reports/:id", reportHandler.GetReport)
 		api.POST("/sync/repositories", syncHandler.SyncRepositories)
 		api.POST("/repositories/:id/summarize", aiHandler.GenerateSummary)
+		api.POST("/repositories/:id/calculate-health", healthHandler.CalculateHealth)
 	}
 
 	log.Printf("Server running on :%s", cfg.ServerPort)

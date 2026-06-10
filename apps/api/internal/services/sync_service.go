@@ -49,12 +49,16 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 				continue
 			}
 
+			// Ambil jumlah kontributor
+			contributors, _ := s.github.GetContributorsCount(ctx, gh.Owner.Login, gh.Name)
+
 			// Buat snapshot
 			snapshot := repository.RepositorySnapshot{
 				RepositoryID: repo.ID,
 				Stars:        gh.StargazersCount,
 				Forks:        gh.ForksCount,
 				OpenIssues:   gh.OpenIssuesCount,
+				Contributors: contributors,
 				CapturedAt:   time.Now(),
 			}
 			s.db.Create(&snapshot)

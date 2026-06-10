@@ -94,8 +94,13 @@ func (c *Client) GetContributorsCount(ctx context.Context, owner, repo string) (
 	if link == "" {
 		return 0, nil
 	}
-	// Parse last page from Link header
-	return 0, nil // simplified, count from response body
+	// Parse last page from Link header: <...&page=N>; rel="last"
+	var lastPage int
+	_, err = fmt.Sscanf(link, `<https://api.github.com/repos/%*s/%*s/contributors?per_page=1&page=%d>; rel="last"`, &lastPage)
+	if err != nil {
+		return 0, nil
+	}
+	return lastPage, nil
 }
 
 func (c *Client) GetLatestRelease(ctx context.Context, owner, repo string) (*Release, error) {

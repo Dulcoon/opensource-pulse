@@ -44,3 +44,7 @@ func (s *RepositoryService) GetRepository(ctx context.Context, id uint) (*Reposi
 func (s *RepositoryService) GetSummary(ctx context.Context, id uint) (*repository.RepositorySummary, error) {
 	return s.repoRepo.FindSummaryByRepoID(ctx, id)
 }
+
+func (s *RepositoryService) GetSnapshots(ctx context.Context, id uint) ([]repository.RepositorySnapshot, error) {
+	return s.repoRepo.FindSnapshotsByRepoID(ctx, id)
+}

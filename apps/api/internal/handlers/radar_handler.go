@@ -8,11 +8,12 @@ import (
 )
 
 type RadarHandler struct {
-	svc *services.RadarService
+	svc    *services.RadarService
+	calc   *services.RadarCalculator
 }
 
-func NewRadarHandler(svc *services.RadarService) *RadarHandler {
-	return &RadarHandler{svc: svc}
+func NewRadarHandler(svc *services.RadarService, calc *services.RadarCalculator) *RadarHandler {
+	return &RadarHandler{svc: svc, calc: calc}
 }
 
 func (h *RadarHandler) GetRadar(c *gin.Context) {
@@ -22,4 +23,13 @@ func (h *RadarHandler) GetRadar(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, scores)
+}
+
+func (h *RadarHandler) CalculateRadar(c *gin.Context) {
+	err := h.calc.Calculate(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Tech Radar calculated"})
 }

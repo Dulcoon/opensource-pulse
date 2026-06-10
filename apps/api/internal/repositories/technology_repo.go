@@ -30,6 +30,37 @@ func (r *TechnologyRepo) FindAllScores(ctx context.Context) ([]technology.Techno
 	return scores, err
 }
 
+func (r *TechnologyRepo) FindAll(ctx context.Context) ([]technology.Technology, error) {
+	var techs []technology.Technology
+	err := r.db.WithContext(ctx).Find(&techs).Error
+	return techs, err
+}
+
+type TechStat struct {
+	TechnologyID   uint
+	TechnologyName string
+	Slug           string
+	RepoCount      int
+	TotalStars     int64
+}
+
+func (r *TechnologyRepo) FindAllTechStats(ctx context.Context) ([]TechStat, error) {
+	var stats []TechStat
+	err := r.db.WithContext(ctx).
+		Table("technologies").
+		Select(`technologies.id AS technology_id, 
+				technologies.technology_name, 
+				technologies.slug,
+				COUNT(repository_technologies.repository_id) AS repo_count,
+				COALESCE(SUM(repositories.stars), 0) AS total_stars`).
+		Joins("LEFT JOIN repository_technologies ON technologies.id = repository_technologies.technology_id").
+		Joins("LEFT JOIN repositories ON repositories.id = repository_technologies.repository_id").
+		Group("technologies.id, technologies.technology_name, technologies.slug").
+		Order("total_stars DESC").
+		Scan(&stats).Error
+	return stats, err
+}
+
 func (r *TechnologyRepo) FindNamesByRepoID(ctx context.Context, repoID uint) ([]string, error) {
 	var names []string
 	err := r.db.WithContext(ctx).

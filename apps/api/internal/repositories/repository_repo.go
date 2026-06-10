@@ -58,3 +58,12 @@ func (r *RepositoryRepo) FindHealthScoreByRepoID(ctx context.Context, repoID uin
 	}
 	return &score, nil
 }
+
+func (r *RepositoryRepo) FindSnapshotsByRepoID(ctx context.Context, repoID uint) ([]repository.RepositorySnapshot, error) {
+	var snapshots []repository.RepositorySnapshot
+	err := r.db.WithContext(ctx).
+		Where("repository_id = ?", repoID).
+		Order("captured_at desc").
+		Find(&snapshots).Error
+	return snapshots, err
+}
