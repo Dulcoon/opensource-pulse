@@ -80,6 +80,65 @@ Return JSON with this structure:
 	return nil, fmt.Errorf("all Groq models failed: %w", lastErr)
 }
 
+func (c *Client) GenerateText(ctx context.Context, system, user string) (string, error) {
+	messages := []Message{
+		{Role: "system", Content: system},
+		{Role: "user", Content: user},
+	}
+
+	var lastErr error
+	for _, model := range c.models {
+		resp, err := c.callText(ctx, model, messages)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return "", fmt.Errorf("all Groq models failed: %w", lastErr)
+}
+
+func (c *Client) callText(ctx context.Context, model string, messages []Message) (string, error) {
+	reqBody := ChatRequest{Model: model, Messages: messages}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshal error: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("request error: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("groq %s request failed: %w", model, err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read error: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("groq %s status %d: %s", model, resp.StatusCode, string(respBody))
+	}
+
+	var chatResp ChatResponse
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return "", fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	if len(chatResp.Choices) == 0 {
+		return "", fmt.Errorf("groq %s: no choices", model)
+	}
+
+	return chatResp.Choices[0].Message.Content, nil
+}
+
 func (c *Client) callModel(ctx context.Context, model string, messages []Message) (*ai.SummaryResult, error) {
 	reqBody := ChatRequest{Model: model, Messages: messages}
 	body, err := json.Marshal(reqBody)

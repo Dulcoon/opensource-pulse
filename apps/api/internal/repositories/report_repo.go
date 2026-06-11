@@ -3,8 +3,10 @@ package repositories
 import (
 	"context"
 	"errors"
+	"time"
 
 	"opensource-pulse/api/internal/domain/report"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +30,27 @@ func (r *ReportRepo) FindReportByID(ctx context.Context, id uint) (*report.Weekl
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
+	return &rpt, err
+}
+
+func (r *ReportRepo) CreateInsight(ctx context.Context, text string) (*report.DailyInsight, error) {
+	insight := report.DailyInsight{
+		InsightText: text,
+		GeneratedAt: time.Now(),
+	}
+	err := r.db.WithContext(ctx).Create(&insight).Error
+	return &insight, err
+}
+
+func (r *ReportRepo) CreateReport(ctx context.Context, title string, content *string, topTech, topRepo datatypes.JSON) (*report.WeeklyReport, error) {
+	rpt := report.WeeklyReport{
+		Title:           title,
+		ReportContent:   content,
+		TopTechnologies: topTech,
+		TopRepositories: topRepo,
+		GeneratedAt:     time.Now(),
+	}
+	err := r.db.WithContext(ctx).Create(&rpt).Error
 	return &rpt, err
 }
 
