@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -92,14 +94,15 @@ func (c *Client) GetContributorsCount(ctx context.Context, owner, repo string) (
 
 	link := resp.Header.Get("Link")
 	if link == "" {
-		return 0, nil
+		// Cuma 1 page -> 1 kontributor (karena per_page=1 & response ga kosong)
+		return 1, nil
 	}
-	// Parse last page from Link header: <...&page=N>; rel="last"
-	var lastPage int
-	_, err = fmt.Sscanf(link, `<https://api.github.com/repos/%*s/%*s/contributors?per_page=1&page=%d>; rel="last"`, &lastPage)
-	if err != nil {
-		return 0, nil
+	re := regexp.MustCompile(`page=(\d+)>; rel="last"`)
+	matches := re.FindStringSubmatch(link)
+	if len(matches) < 2 {
+		return 1, nil
 	}
+	lastPage, _ := strconv.Atoi(matches[1])
 	return lastPage, nil
 }
 

@@ -67,3 +67,22 @@ func (r *RepositoryRepo) FindSnapshotsByRepoID(ctx context.Context, repoID uint)
 		Find(&snapshots).Error
 	return snapshots, err
 }
+
+func (r *RepositoryRepo) CountStats(ctx context.Context) (totalRepos int64, totalStars int64, distinctLanguages int64, err error) {
+	err = r.db.WithContext(ctx).Model(&repository.Repository{}).Count(&totalRepos).Error
+	if err != nil {
+		return
+	}
+	err = r.db.WithContext(ctx).Model(&repository.Repository{}).Select("COALESCE(SUM(stars), 0)").Scan(&totalStars).Error
+	if err != nil {
+		return
+	}
+	err = r.db.WithContext(ctx).Model(&repository.Repository{}).Where("primary_language IS NOT NULL AND primary_language != ''").Distinct("primary_language").Count(&distinctLanguages).Error
+	return
+}
+
+func (r *RepositoryRepo) FindTopWithGrowth(ctx context.Context, limit int) ([]repository.Repository, error) {
+	var repos []repository.Repository
+	err := r.db.WithContext(ctx).Order("stars desc").Limit(limit).Find(&repos).Error
+	return repos, err
+}

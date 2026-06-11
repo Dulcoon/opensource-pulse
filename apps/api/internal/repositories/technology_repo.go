@@ -70,3 +70,20 @@ func (r *TechnologyRepo) FindNamesByRepoID(ctx context.Context, repoID uint) ([]
 		Pluck("technologies.technology_name", &names).Error
 	return names, err
 }
+
+func (r *TechnologyRepo) FindEmerging(ctx context.Context, limit int) ([]technology.TechnologyScore, error) {
+	var scores []technology.TechnologyScore
+	err := r.db.WithContext(ctx).
+		Where("calculated_at = (SELECT MAX(calculated_at) FROM technology_scores)").
+		Where("growth_percentage > 0").
+		Order("growth_percentage desc").
+		Limit(limit).
+		Find(&scores).Error
+	return scores, err
+}
+
+func (r *TechnologyRepo) CountTechnologies(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&technology.Technology{}).Count(&count).Error
+	return count, err
+}
