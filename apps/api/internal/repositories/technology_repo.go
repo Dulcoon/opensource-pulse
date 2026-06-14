@@ -87,3 +87,27 @@ func (r *TechnologyRepo) CountTechnologies(ctx context.Context) (int64, error) {
 	err := r.db.WithContext(ctx).Model(&technology.Technology{}).Count(&count).Error
 	return count, err
 }
+
+type TechTrendStat struct {
+	Month    string  `json:"month"`
+	TechName string  `json:"tech_name"`
+	AvgScore float64 `json:"avg_score"`
+	RepoCount int64  `json:"repo_count"`
+}
+
+func (r *TechnologyRepo) FindTechnologyTrend(ctx context.Context) ([]TechTrendStat, error) {
+	var stats []TechTrendStat
+	err := r.db.WithContext(ctx).
+		Raw(`SELECT 
+			TO_CHAR(ts.calculated_at, 'YYYY-MM') AS month,
+			t.technology_name AS tech_name,
+			AVG(ts.score) AS avg_score,
+			MAX(ts.repository_count) AS repo_count
+		FROM technology_scores ts
+		JOIN technologies t ON t.id = ts.technology_id
+		WHERE ts.calculated_at >= NOW() - INTERVAL '12 months'
+		GROUP BY month, t.technology_name
+		ORDER BY month, avg_score DESC`).
+		Scan(&stats).Error
+	return stats, err
+}

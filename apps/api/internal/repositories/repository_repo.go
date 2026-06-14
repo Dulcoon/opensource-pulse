@@ -28,6 +28,14 @@ func (r *RepositoryRepo) FindByID(ctx context.Context, id uint) (*repository.Rep
 	return &repo, err
 }
 
+func (r *RepositoryRepo) FindByFullName(ctx context.Context, owner, repoName string) (*repository.Repository, error) {
+	var repo repository.Repository
+	err := r.db.WithContext(ctx).
+		Where("owner = ? AND repository_name = ?", owner, repoName).
+		First(&repo).Error
+	return &repo, err
+}
+
 func (r *RepositoryRepo) Search(ctx context.Context, query, language string) ([]repository.Repository, error) {
 	var repos []repository.Repository
 	tx := r.db.WithContext(ctx)
@@ -85,4 +93,66 @@ func (r *RepositoryRepo) FindTopWithGrowth(ctx context.Context, limit int) ([]re
 	var repos []repository.Repository
 	err := r.db.WithContext(ctx).Order("stars desc").Limit(limit).Find(&repos).Error
 	return repos, err
+}
+
+type LanguageStat struct {
+	Language   string `json:"language"`
+	TotalStars int64  `json:"total_stars"`
+	RepoCount  int64  `json:"repo_count"`
+}
+
+func (r *RepositoryRepo) FindLanguageGrowth(ctx context.Context) ([]LanguageStat, error) {
+	var stats []LanguageStat
+	err := r.db.WithContext(ctx).
+		Model(&repository.Repository{}).
+		Where("primary_language IS NOT NULL AND primary_language != ''").
+		Select("primary_language AS language, COALESCE(SUM(stars), 0) AS total_stars, COUNT(*) AS repo_count").
+		Group("primary_language").
+		Order("total_stars DESC").
+		Scan(&stats).Error
+	return stats, err
+}
+
+type ContributorStat struct {
+	Month       string `json:"month"`
+	TotalContributors int64 `json:"total_contributors"`
+	RepoCount   int64  `json:"repo_count"`
+}
+
+func (r *RepositoryRepo) FindContributorTrend(ctx context.Context) ([]ContributorStat, error) {
+	var stats []ContributorStat
+	err := r.db.WithContext(ctx).
+		Raw(`SELECT 
+			TO_CHAR(captured_at, 'YYYY-MM') AS month,
+			COALESCE(SUM(contributors), 0) AS total_contributors,
+			COUNT(DISTINCT repository_id) AS repo_count
+		FROM repository_snapshots
+		WHERE captured_at >= NOW() - INTERVAL '12 months'
+		GROUP BY month
+		ORDER BY month`).
+		Scan(&stats).Error
+	return stats, err
+}
+
+type RepoGrowthStat struct {
+	Month      string `json:"month"`
+	TotalStars int64  `json:"total_stars"`
+	TotalForks int64  `json:"total_forks"`
+	RepoCount  int64  `json:"repo_count"`
+}
+
+func (r *RepositoryRepo) FindRepoGrowth(ctx context.Context) ([]RepoGrowthStat, error) {
+	var stats []RepoGrowthStat
+	err := r.db.WithContext(ctx).
+		Raw(`SELECT 
+			TO_CHAR(captured_at, 'YYYY-MM') AS month,
+			COALESCE(SUM(stars), 0) AS total_stars,
+			COALESCE(SUM(forks), 0) AS total_forks,
+			COUNT(DISTINCT repository_id) AS repo_count
+		FROM repository_snapshots
+		WHERE captured_at >= NOW() - INTERVAL '12 months'
+		GROUP BY month
+		ORDER BY month`).
+		Scan(&stats).Error
+	return stats, err
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"opensource-pulse/api/internal/config"
 	"opensource-pulse/api/internal/database"
+	"opensource-pulse/api/internal/middleware"
 	"opensource-pulse/api/internal/domain/report"
 	"opensource-pulse/api/internal/domain/repository"
 	"opensource-pulse/api/internal/domain/technology"
@@ -68,14 +69,14 @@ func main() {
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 
-	syncSvc := services.NewSyncService(cfg, ghClient, repoRepo, techRepo, db)
-	syncHandler := handlers.NewSyncHandler(syncSvc)
-
 	aiSvc := services.NewAIService(gClient, orClient, repoRepo, techRepo, db)
 	aiHandler := handlers.NewAIHandler(aiSvc)
 
 	healthSvc := services.NewHealthService(ghClient, repoRepo, db)
 	healthHandler := handlers.NewHealthHandler(healthSvc)
+
+	syncSvc := services.NewSyncService(cfg, ghClient, repoRepo, techRepo, db, aiSvc, healthSvc)
+	syncHandler := handlers.NewSyncHandler(syncSvc)
 
 	insightSvc := services.NewInsightService(gClient, repoRepo, techRepo, reportRepo)
 	insightHandler := handlers.NewInsightHandler(insightSvc)
@@ -109,10 +110,12 @@ func main() {
 
 	// Router
 	r := gin.Default()
+	r.Use(middleware.CORS())
 	api := r.Group("/api")
 	{
 		api.GET("/dashboard", dashboardHandler.GetDashboard)
 		api.GET("/repositories", repoHandler.ListRepositories)
+		api.GET("/repositories/by-name/:owner/:repo", repoHandler.GetRepositoryByOwner)
 		api.GET("/repositories/:id", repoHandler.GetRepository)
 		api.GET("/repositories/:id/summary", repoHandler.GetSummary)
 		api.GET("/repositories/:id/snapshots", repoHandler.GetSnapshots)
@@ -125,6 +128,7 @@ func main() {
 		api.POST("/repositories/:id/summarize", aiHandler.GenerateSummary)
 		api.POST("/repositories/:id/calculate-health", healthHandler.CalculateHealth)
 		api.POST("/reports/generate-insight", insightHandler.GenerateInsight)
+		api.POST("/reports/generate", insightHandler.GenerateReport)
 	}
 
 	log.Printf("Server running on :%s", cfg.ServerPort)

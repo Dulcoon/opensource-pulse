@@ -15,15 +15,17 @@ import (
 )
 
 type SyncService struct {
-	cfg     *config.Config
-	github  *githubClient.Client
-	repo    *repositories.RepositoryRepo
-	tech    *repositories.TechnologyRepo
-	db      *gorm.DB
+	cfg       *config.Config
+	github    *githubClient.Client
+	repo      *repositories.RepositoryRepo
+	tech      *repositories.TechnologyRepo
+	db        *gorm.DB
+	aiSvc     *AIService
+	healthSvc *HealthService
 }
 
-func NewSyncService(cfg *config.Config, github *githubClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB) *SyncService {
-	return &SyncService{cfg: cfg, github: github, repo: repo, tech: tech, db: db}
+func NewSyncService(cfg *config.Config, github *githubClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB, aiSvc *AIService, healthSvc *HealthService) *SyncService {
+	return &SyncService{cfg: cfg, github: github, repo: repo, tech: tech, db: db, aiSvc: aiSvc, healthSvc: healthSvc}
 }
 
 func (s *SyncService) SyncRepositories(ctx context.Context) error {
@@ -66,6 +68,28 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 			// Simpan topics sebagai teknologi
 			for _, topic := range gh.Topics {
 				s.ensureTechnology(ctx, topic, repo.ID)
+			}
+
+			// Auto generate summary + health score untuk repo baru/belum terisi
+			existingSummary, _ := s.repo.FindSummaryByRepoID(ctx, repo.ID)
+			existingHealth, _ := s.repo.FindHealthScoreByRepoID(ctx, repo.ID)
+			if existingSummary == nil || existingHealth == nil {
+				go func(rid uint, fullName string, needSummary, needHealth bool) {
+					ctx2, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+					defer cancel()
+					if needSummary {
+						log.Printf("[Auto] Generating summary for %s...", fullName)
+						if _, err := s.aiSvc.GenerateSummary(ctx2, rid); err != nil {
+							log.Printf("[Auto] Summary failed for %s: %v", fullName, err)
+						}
+					}
+					if needHealth {
+						log.Printf("[Auto] Calculating health score for %s...", fullName)
+						if _, err := s.healthSvc.CalculateAndSave(ctx2, rid); err != nil {
+							log.Printf("[Auto] Health score failed for %s: %v", fullName, err)
+						}
+					}
+				}(repo.ID, gh.FullName, existingSummary == nil, existingHealth == nil)
 			}
 
 			log.Printf("Synced: %s (stars: %d)", gh.FullName, gh.StargazersCount)

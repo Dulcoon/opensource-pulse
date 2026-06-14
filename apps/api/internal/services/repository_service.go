@@ -21,6 +21,22 @@ type RepositoryDetailResponse struct {
 	HealthScore *repository.RepositoryHealthScore `json:"health_score"`
 }
 
+func (s *RepositoryService) FindByOwnerAndName(ctx context.Context, owner, repoName string) (*RepositoryDetailResponse, error) {
+	repo, err := s.repoRepo.FindByFullName(ctx, owner, repoName)
+	if err != nil {
+		return nil, err
+	}
+
+	summary, _ := s.repoRepo.FindSummaryByRepoID(ctx, repo.ID)
+	health, _ := s.repoRepo.FindHealthScoreByRepoID(ctx, repo.ID)
+
+	return &RepositoryDetailResponse{
+		Repository:  *repo,
+		Summary:     summary,
+		HealthScore: health,
+	}, nil
+}
+
 func (s *RepositoryService) ListRepositories(ctx context.Context, query, language string) ([]repository.Repository, error) {
 	return s.repoRepo.Search(ctx, query, language)
 }

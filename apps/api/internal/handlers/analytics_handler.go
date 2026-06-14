@@ -16,6 +16,10 @@ func NewAnalyticsHandler(svc *services.AnalyticsService) *AnalyticsHandler {
 }
 
 func (h *AnalyticsHandler) GetAnalytics(c *gin.Context) {
-	data := h.svc.GetAnalytics(c.Request.Context())
+	data, err := h.svc.GetAnalytics(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, data)
 }

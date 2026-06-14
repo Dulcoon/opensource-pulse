@@ -43,6 +43,18 @@ func (h *RepositoryHandler) GetRepository(c *gin.Context) {
 	c.JSON(http.StatusOK, repo)
 }
 
+func (h *RepositoryHandler) GetRepositoryByOwner(c *gin.Context) {
+	owner := c.Param("owner")
+	repoName := c.Param("repo")
+
+	repo, err := h.svc.FindByOwnerAndName(c.Request.Context(), owner, repoName)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "repository not found"})
+		return
+	}
+	c.JSON(http.StatusOK, repo)
+}
+
 func (h *RepositoryHandler) GetSummary(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
