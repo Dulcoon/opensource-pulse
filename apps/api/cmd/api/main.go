@@ -13,9 +13,10 @@ import (
 	"opensource-pulse/api/internal/domain/report"
 	"opensource-pulse/api/internal/domain/repository"
 	"opensource-pulse/api/internal/domain/technology"
+	"opensource-pulse/api/internal/domain/user"
 	"opensource-pulse/api/internal/handlers"
 	githubClient "opensource-pulse/api/internal/integrations/github"
-	groqClient "opensource-pulse/api/internal/integrations/groq"
+	geminiClient "opensource-pulse/api/internal/integrations/gemini"
 	openrouterClient "opensource-pulse/api/internal/integrations/openrouter"
 	"opensource-pulse/api/internal/repositories"
 	"opensource-pulse/api/internal/scheduler"
@@ -33,11 +34,12 @@ func main() {
 	}
 
 	ghClient := githubClient.NewClient(cfg.GitHubToken)
-	gClient := groqClient.NewClient(cfg.GroqKey)
+	gemClient := geminiClient.NewClient(cfg.GeminiKey, cfg.GeminiModel)
 	orClient := openrouterClient.NewClient(cfg.OpenRouterKey)
 
 	// Auto Migrate
 	db.AutoMigrate(
+		&user.User{},
 		&repository.Repository{},
 		&repository.RepositorySnapshot{},
 		&repository.RepositorySummary{},
@@ -50,11 +52,13 @@ func main() {
 	)
 
 	// Repositories
+	userRepo := repositories.NewUserRepo(db)
 	repoRepo := repositories.NewRepositoryRepo(db)
 	techRepo := repositories.NewTechnologyRepo(db)
 	reportRepo := repositories.NewReportRepo(db)
 
 	// Services
+	authSvc := services.NewAuthService(cfg, userRepo)
 	dashboardSvc := services.NewDashboardService(repoRepo, techRepo, reportRepo)
 	repoSvc := services.NewRepositoryService(repoRepo)
 	radarSvc := services.NewRadarService(techRepo)
@@ -62,14 +66,20 @@ func main() {
 	analyticsSvc := services.NewAnalyticsService(repoRepo, techRepo)
 	reportSvc := services.NewReportService(reportRepo)
 
+	// Seed default admin user (admin@pulse.com / admin123)
+	if err := authSvc.SeedAdminUser(context.Background()); err != nil {
+		log.Printf("ERROR: Failed to seed admin user: %v", err)
+	}
+
 	// Handlers
+	authHandler := handlers.NewAuthHandler(authSvc)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardSvc)
 	repoHandler := handlers.NewRepositoryHandler(repoSvc)
 	radarHandler := handlers.NewRadarHandler(radarSvc, radarCalc)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc)
 	reportHandler := handlers.NewReportHandler(reportSvc)
 
-	aiSvc := services.NewAIService(gClient, orClient, repoRepo, techRepo, db)
+	aiSvc := services.NewAIService(gemClient, orClient, repoRepo, techRepo, db)
 	aiHandler := handlers.NewAIHandler(aiSvc)
 
 	healthSvc := services.NewHealthService(ghClient, repoRepo, db)
@@ -78,7 +88,7 @@ func main() {
 	syncSvc := services.NewSyncService(cfg, ghClient, repoRepo, techRepo, db, aiSvc, healthSvc)
 	syncHandler := handlers.NewSyncHandler(syncSvc)
 
-	insightSvc := services.NewInsightService(gClient, repoRepo, techRepo, reportRepo)
+	insightSvc := services.NewInsightService(gemClient, repoRepo, techRepo, reportRepo)
 	insightHandler := handlers.NewInsightHandler(insightSvc)
 
 	// Background worker (only if Redis is reachable)
@@ -111,8 +121,19 @@ func main() {
 	// Router
 	r := gin.Default()
 	r.Use(middleware.CORS())
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+	r.HEAD("/health", func(c *gin.Context) {
+		c.Status(200)
+	})
 	api := r.Group("/api")
 	{
+		// Public Auth
+		api.POST("/auth/login", authHandler.Login)
+		api.GET("/auth/me", middleware.AuthMiddleware(authSvc), authHandler.Me)
+
+		// Public Reads
 		api.GET("/dashboard", dashboardHandler.GetDashboard)
 		api.GET("/repositories", repoHandler.ListRepositories)
 		api.GET("/repositories/by-name/:owner/:repo", repoHandler.GetRepositoryByOwner)
@@ -120,15 +141,21 @@ func main() {
 		api.GET("/repositories/:id/summary", repoHandler.GetSummary)
 		api.GET("/repositories/:id/snapshots", repoHandler.GetSnapshots)
 		api.GET("/radar", radarHandler.GetRadar)
-		api.POST("/radar/calculate", radarHandler.CalculateRadar)
 		api.GET("/analytics", analyticsHandler.GetAnalytics)
 		api.GET("/reports", reportHandler.ListReports)
 		api.GET("/reports/:id", reportHandler.GetReport)
-		api.POST("/sync/repositories", syncHandler.SyncRepositories)
-		api.POST("/repositories/:id/summarize", aiHandler.GenerateSummary)
-		api.POST("/repositories/:id/calculate-health", healthHandler.CalculateHealth)
-		api.POST("/reports/generate-insight", insightHandler.GenerateInsight)
-		api.POST("/reports/generate", insightHandler.GenerateReport)
+
+		// Protected Operations (Requires Admin Token)
+		protected := api.Group("")
+		protected.Use(middleware.AuthMiddleware(authSvc))
+		{
+			protected.POST("/sync/repositories", syncHandler.SyncRepositories)
+			protected.POST("/radar/calculate", radarHandler.CalculateRadar)
+			protected.POST("/repositories/:id/summarize", aiHandler.GenerateSummary)
+			protected.POST("/repositories/:id/calculate-health", healthHandler.CalculateHealth)
+			protected.POST("/reports/generate-insight", insightHandler.GenerateInsight)
+			protected.POST("/reports/generate", insightHandler.GenerateReport)
+		}
 	}
 
 	log.Printf("Server running on :%s", cfg.ServerPort)

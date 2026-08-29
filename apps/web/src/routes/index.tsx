@@ -38,8 +38,8 @@ function Dashboard() {
     : mockWeeklyStats;
 
   const heatmap = dash?.hot_technologies
-    ? dash.hot_technologies.map((t: TechnologyScore, i: number) => ({
-        name: `Tech #${t.technology_id}`,
+    ? dash.hot_technologies.map((t: TechnologyScore) => ({
+        name: t.technology?.technology_name || `Tech #${t.technology_id}`,
         weight: Math.min(Math.round((t.score ?? 0) * 10), 100),
         growth: Math.round(t.growth_percentage ?? 0),
         status: (t.status === "Exploding" ? "Exploding" :

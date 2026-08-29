@@ -1,4 +1,3 @@
-
 services:
   # PostgreSQL
   postgres:
@@ -6,18 +5,20 @@ services:
     container_name: opensource_pulse_db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: opensource_pulse
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - docker_data/postgres:/var/lib/postgresql/data
+      - docker_data_postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - opensource_pulse
 
   # Redis
   redis:
@@ -27,24 +28,29 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - docker_data/redis:/data
+      - docker_data_redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - opensource_pulse
 
-  # API Backend
+  # API Backend (Live-Reload via Air + Volume Mount)
   api:
     build:
-      context: ../api
-      dockerfile: ../Dockerfile.api
+      context: ../apps/api
+      dockerfile: ../../docker/Dockerfile.api
     container_name: opensource_pulse_api
     restart: unless-stopped
     ports:
       - "9001:9001"
     env_file:
-      - docker/development/.env.api
+      - development/.env.api
+    volumes:
+      - ../apps/api:/app
+      - api_tmp:/app/tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,17 +59,21 @@ services:
     networks:
       - opensource_pulse
 
-  # Frontend
+  # Frontend (Live-Reload via Vite HMR + Volume Mount)
   web:
     build:
-      context: ../web
-      dockerfile: ../Dockerfile.web
+      context: ../apps/web
+      dockerfile: ../../docker/Dockerfile.web
     container_name: opensource_pulse_web
     restart: unless-stopped
     ports:
       - "3000:3000"
     env_file:
-      - docker/development/.env.web
+      - development/.env.web
+    volumes:
+      - ../apps/web:/app
+      - /app/node_modules
+      - /app/.tanstack
     depends_on:
       api:
         condition: service_healthy
@@ -75,4 +85,6 @@ networks:
     driver: bridge
 
 volumes:
-  docker_data:
+  docker_data_postgres:
+  docker_data_redis:
+  api_tmp:

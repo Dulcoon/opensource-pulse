@@ -6,24 +6,24 @@ import (
 	"fmt"
 	"log"
 
-	groqClient "opensource-pulse/api/internal/integrations/groq"
+	geminiClient "opensource-pulse/api/internal/integrations/gemini"
 	"opensource-pulse/api/internal/domain/report"
 	"opensource-pulse/api/internal/repositories"
 )
 
 type InsightService struct {
-	groq *groqClient.Client
-	repo *repositories.RepositoryRepo
-	tech *repositories.TechnologyRepo
-	rpt  *repositories.ReportRepo
+	gemini *geminiClient.Client
+	repo   *repositories.RepositoryRepo
+	tech   *repositories.TechnologyRepo
+	rpt    *repositories.ReportRepo
 }
 
-func NewInsightService(groq *groqClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, rpt *repositories.ReportRepo) *InsightService {
-	return &InsightService{groq: groq, repo: repo, tech: tech, rpt: rpt}
+func NewInsightService(gemini *geminiClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, rpt *repositories.ReportRepo) *InsightService {
+	return &InsightService{gemini: gemini, repo: repo, tech: tech, rpt: rpt}
 }
 
 func (s *InsightService) GenerateInsight(ctx context.Context) (*report.DailyInsight, error) {
-	log.Println("Generating daily insight...")
+	log.Println("Generating daily insight with Gemini...")
 
 	// Ambil top 5 repos
 	topRepos, err := s.repo.FindAll(ctx)
@@ -56,7 +56,11 @@ func (s *InsightService) GenerateInsight(ctx context.Context) (*report.DailyInsi
 
 	techSummary := ""
 	for i, t := range topTechs {
-		techSummary += fmt.Sprintf("%d. tech_id=%d, score=%.1f, repos=%d\n", i+1, t.TechnologyID, *t.Score, *t.RepositoryCount)
+		techName := fmt.Sprintf("Tech #%d", t.TechnologyID)
+		if t.Technology != nil && t.Technology.TechnologyName != "" {
+			techName = t.Technology.TechnologyName
+		}
+		techSummary += fmt.Sprintf("%d. %s, score=%.1f, repos=%d\n", i+1, techName, *t.Score, *t.RepositoryCount)
 	}
 
 	prompt := fmt.Sprintf(`Today's open source landscape data:
@@ -74,9 +78,9 @@ Based on this data, write ONE paragraph (2-3 sentences) of insight about current
 
 	system := "You are an open source intelligence analyst. Give concise, data-driven insight in Indonesian language. Just the paragraph, no preamble."
 
-	text, err := s.groq.GenerateText(ctx, system, prompt)
+	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("groq insight: %w", err)
+		return nil, fmt.Errorf("gemini insight error: %w", err)
 	}
 
 	insight, err := s.rpt.CreateInsight(ctx, text)
@@ -89,7 +93,7 @@ Based on this data, write ONE paragraph (2-3 sentences) of insight about current
 }
 
 func (s *InsightService) GenerateWeeklyReport(ctx context.Context) (*report.WeeklyReport, error) {
-	log.Println("Generating weekly report...")
+	log.Println("Generating weekly report with Gemini...")
 
 	topRepos, _ := s.repo.FindAll(ctx)
 	reposLimit := 10
@@ -116,7 +120,11 @@ func (s *InsightService) GenerateWeeklyReport(ctx context.Context) (*report.Week
 
 	techSummary := ""
 	for i, t := range top10Techs {
-		techSummary += fmt.Sprintf("%d. tech_id=%d, score=%.1f, repos=%d\n", i+1, t.TechnologyID, *t.Score, *t.RepositoryCount)
+		techName := fmt.Sprintf("Tech #%d", t.TechnologyID)
+		if t.Technology != nil && t.Technology.TechnologyName != "" {
+			techName = t.Technology.TechnologyName
+		}
+		techSummary += fmt.Sprintf("%d. %s, score=%.1f, repos=%d\n", i+1, techName, *t.Score, *t.RepositoryCount)
 	}
 
 	prompt := fmt.Sprintf(`This week's open source landscape data:
@@ -140,9 +148,9 @@ Be specific, data-driven, and write in Indonesian.`,
 
 	system := "You are an open source intelligence analyst writing a weekly report. Write in Indonesian language. Be specific and data-driven."
 
-	text, err := s.groq.GenerateText(ctx, system, prompt)
+	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("groq weekly report: %w", err)
+		return nil, fmt.Errorf("gemini weekly report error: %w", err)
 	}
 
 	topTechJSON, _ := json.Marshal(top10Techs)

@@ -48,8 +48,8 @@ func NewClient(apiKey string) *Client {
 		client: &http.Client{Timeout: 120 * time.Second},
 		models: []string{
 			"google/gemini-2.0-flash-exp:free",
-			"deepseek/deepseek-v4-flash:free",
-			"meta-llama/llama-3.3-70b-instruct:free",
+			"meta-llama/llama-3.3-70b-instruct",
+			"mistralai/mistral-7b-instruct:free",
 		},
 	}
 }

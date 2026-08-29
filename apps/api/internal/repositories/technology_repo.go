@@ -18,6 +18,7 @@ func NewTechnologyRepo(db *gorm.DB) *TechnologyRepo {
 func (r *TechnologyRepo) FindLatestScores(ctx context.Context) ([]technology.TechnologyScore, error) {
 	var scores []technology.TechnologyScore
 	err := r.db.WithContext(ctx).
+		Preload("Technology").
 		Where("calculated_at = (SELECT MAX(calculated_at) FROM technology_scores)").
 		Order("score desc").
 		Find(&scores).Error
@@ -26,7 +27,10 @@ func (r *TechnologyRepo) FindLatestScores(ctx context.Context) ([]technology.Tec
 
 func (r *TechnologyRepo) FindAllScores(ctx context.Context) ([]technology.TechnologyScore, error) {
 	var scores []technology.TechnologyScore
-	err := r.db.WithContext(ctx).Order("calculated_at desc, score desc").Find(&scores).Error
+	err := r.db.WithContext(ctx).
+		Preload("Technology").
+		Order("calculated_at desc, score desc").
+		Find(&scores).Error
 	return scores, err
 }
 
@@ -74,6 +78,7 @@ func (r *TechnologyRepo) FindNamesByRepoID(ctx context.Context, repoID uint) ([]
 func (r *TechnologyRepo) FindEmerging(ctx context.Context, limit int) ([]technology.TechnologyScore, error) {
 	var scores []technology.TechnologyScore
 	err := r.db.WithContext(ctx).
+		Preload("Technology").
 		Where("calculated_at = (SELECT MAX(calculated_at) FROM technology_scores)").
 		Where("growth_percentage > 0").
 		Order("growth_percentage desc").

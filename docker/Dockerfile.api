@@ -1,32 +1,23 @@
-# Backend Dockerfile
-FROM golang:1.25.10-alpine AS builder workerscheduler
+# Backend Development Dockerfile with Air (Live-Reload)
+FROM golang:alpine
 
 WORKDIR /app
 
-# Copy dependencies (cached by Docker)
+# Install air for live reload and git
+RUN apk add --no-cache git && \
+    go install github.com/air-verse/air@latest
+
+# Copy go module definitions
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy source code
 COPY . .
 
-# Compile dengan CGO enabled false (optimasi)
-RUN CGO_ENABLED=0 go build -o /app/api ./cmd/api
+EXPOSE 9001
 
-FROM alpine:latest
+# Health check
+HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=5 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:9001/health || exit 1
 
-WORKDIR /app
-
-# Copy binary compilation
-COPY --from=builder /app/api /app/api
-
-# Directory file env template
-COPY docker/development/.env.api.example /app/.env.example
-
-EXPOSE 8080
-
-# Health check (cek apakah API nyala)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
-
-CMD ["/app/api"]
+CMD ["air", "-c", ".air.toml"]

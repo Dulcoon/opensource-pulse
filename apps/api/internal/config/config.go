@@ -14,6 +14,8 @@ type Config struct {
 	RedisPassword    string
 	RedisDB          int
 	GitHubToken      string
+	GeminiKey        string
+	GeminiModel      string
 	GroqKey          string
 	OpenRouterKey    string
 	TelegramToken    string
@@ -31,6 +33,8 @@ func Load() *Config {
 		RedisPassword:    getEnv("REDIS_PASSWORD", ""),
 		RedisDB:          getEnvInt("REDIS_DB", 0),
 		GitHubToken:      os.Getenv("GITHUB_TOKEN"),
+		GeminiKey:        os.Getenv("GEMINI_API_KEY"),
+		GeminiModel:      getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		GroqKey:          os.Getenv("GROQ_API_KEY"),
 		OpenRouterKey:    os.Getenv("OPENROUTER_API_KEY"),
 		TelegramToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),

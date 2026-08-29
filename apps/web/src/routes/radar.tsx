@@ -22,7 +22,9 @@ function RadarPage() {
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   const techList = (scores ?? []).map((s: TechnologyScore) => ({
-    name: `Tech #${s.technology_id}`,
+    name: s.technology?.technology_name || `Tech #${s.technology_id}`,
+    slug: s.technology?.slug || "",
+    category: s.technology?.category || "general",
     quadrant: (s.status === "Exploding" ? "Exploding" :
                s.status === "Rising" ? "Rising" :
                s.status === "Stable" ? "Stable" : "Declining") as typeof quadrants[number],

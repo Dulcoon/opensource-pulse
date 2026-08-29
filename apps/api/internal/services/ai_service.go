@@ -9,7 +9,7 @@ import (
 
 	"opensource-pulse/api/internal/domain/ai"
 	"opensource-pulse/api/internal/domain/repository"
-	groqClient "opensource-pulse/api/internal/integrations/groq"
+	geminiClient "opensource-pulse/api/internal/integrations/gemini"
 	openrouterClient "opensource-pulse/api/internal/integrations/openrouter"
 	"opensource-pulse/api/internal/repositories"
 
@@ -17,15 +17,15 @@ import (
 )
 
 type AIService struct {
-	groq       *groqClient.Client
+	gemini     *geminiClient.Client
 	openrouter *openrouterClient.Client
 	repo       *repositories.RepositoryRepo
 	tech       *repositories.TechnologyRepo
 	db         *gorm.DB
 }
 
-func NewAIService(groq *groqClient.Client, openrouter *openrouterClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB) *AIService {
-	return &AIService{groq: groq, openrouter: openrouter, repo: repo, tech: tech, db: db}
+func NewAIService(gemini *geminiClient.Client, openrouter *openrouterClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB) *AIService {
+	return &AIService{gemini: gemini, openrouter: openrouter, repo: repo, tech: tech, db: db}
 }
 
 func (s *AIService) GenerateSummary(ctx context.Context, repoID uint) (*ai.SummaryResult, error) {
@@ -46,11 +46,13 @@ func (s *AIService) GenerateSummary(ctx context.Context, repoID uint) (*ai.Summa
 
 	log.Printf("Generating summary for %s...", r.FullName)
 
-	// Primary: Groq
-	result, err := s.groq.GenerateSummary(ctx, r.FullName, desc, topics)
+	// Primary: Google Gemini
+	modelName := "gemini"
+	result, err := s.gemini.GenerateSummary(ctx, r.FullName, desc, topics)
 	if err != nil {
-		log.Printf("Groq failed: %v, trying OpenRouter...", err)
+		log.Printf("Gemini failed: %v, trying OpenRouter fallback...", err)
 		// Fallback: OpenRouter
+		modelName = "openrouter"
 		result, err = s.openrouter.GenerateSummary(ctx, r.FullName, desc, topics)
 		if err != nil {
 			return nil, fmt.Errorf("all AI providers failed: %w", err)
@@ -62,7 +64,6 @@ func (s *AIService) GenerateSummary(ctx context.Context, repoID uint) (*ai.Summa
 	similarProjects, _ := json.Marshal(result.SimilarProjects)
 
 	now := time.Now()
-	modelName := "groq"
 	summary := repository.RepositorySummary{
 		RepositoryID:    repoID,
 		QuickSummary:    &result.QuickSummary,
@@ -80,6 +81,6 @@ func (s *AIService) GenerateSummary(ctx context.Context, repoID uint) (*ai.Summa
 		return nil, err
 	}
 
-	log.Printf("Summary saved for %s", r.FullName)
+	log.Printf("Summary saved for %s using %s", r.FullName, modelName)
 	return result, nil
 }

@@ -48,6 +48,8 @@ lerna-debug.log*
 *.test
 *.out
 *.prof
+tmp/
+apps/api/tmp/
 apps/api/api
 apps/api/main
 apps/api/server

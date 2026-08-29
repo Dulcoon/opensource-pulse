@@ -57,9 +57,18 @@ export interface RepositoryDetailResponse {
   health_score: RepositoryHealthScore | null;
 }
 
+export interface Technology {
+  id: number;
+  technology_name: string;
+  slug: string;
+  category?: string | null;
+  description?: string | null;
+}
+
 export interface TechnologyScore {
   id: number;
   technology_id: number;
+  technology?: Technology | null;
   score: number | null;
   growth_percentage: number | null;
   status: string | null;

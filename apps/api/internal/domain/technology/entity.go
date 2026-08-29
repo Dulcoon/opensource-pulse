@@ -24,13 +24,14 @@ type RepositoryTechnology struct {
 func (RepositoryTechnology) TableName() string { return "repository_technologies" }
 
 type TechnologyScore struct {
-	ID               uint       `gorm:"primaryKey" json:"id"`
-	TechnologyID     uint       `gorm:"not null" json:"technology_id"`
-	Score            *float64   `gorm:"type:numeric(10,2)" json:"score,omitempty"`
-	GrowthPercentage *float64   `gorm:"type:numeric(10,2)" json:"growth_percentage,omitempty"`
-	Status           *string    `gorm:"size:50" json:"status,omitempty"`
-	RepositoryCount  *int       `json:"repository_count,omitempty"`
-	CalculatedAt     *time.Time `gorm:"index:idx_technology_date" json:"calculated_at,omitempty"`
+	ID               uint        `gorm:"primaryKey" json:"id"`
+	TechnologyID     uint        `gorm:"not null" json:"technology_id"`
+	Technology       *Technology `gorm:"foreignKey:TechnologyID" json:"technology,omitempty"`
+	Score            *float64    `gorm:"type:numeric(10,2)" json:"score,omitempty"`
+	GrowthPercentage *float64    `gorm:"type:numeric(10,2)" json:"growth_percentage,omitempty"`
+	Status           *string     `gorm:"size:50" json:"status,omitempty"`
+	RepositoryCount  *int        `json:"repository_count,omitempty"`
+	CalculatedAt     *time.Time  `gorm:"index:idx_technology_date" json:"calculated_at,omitempty"`
 }
 
 func (TechnologyScore) TableName() string { return "technology_scores" }
