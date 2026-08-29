@@ -1,9 +1,16 @@
-# Environment variables and secrets
+# Environment variables and secrets (ignore all .env variations except .example)
 .env
-.env.local
-.env.*.local
+.env.*
 *.env
+*.env.*
 .dev.vars
+!.env*.example
+!*.env*.example
+
+# Docker & Local Data Persistence
+docker/data/
+docker_data/
+.lovable/
 
 # Dependencies
 node_modules/
@@ -21,6 +28,8 @@ out/
 .vinxi/
 .nitro/
 .tanstack/
+docs/
+
 
 # Logs
 logs/
