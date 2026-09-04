@@ -35,6 +35,13 @@ else
   echo "⚠ Warning: Backend API health check failed!"
 fi
 
+# Verify Frontend Web endpoint
+if curl -sf http://127.0.0.1:3001 > /dev/null; then
+  echo "✔ Frontend Web is HEALTHY (http://127.0.0.1:3001)"
+else
+  echo "⚠ Warning: Frontend Web check failed (port 3001)!"
+fi
+
 echo "=============================================================================="
 echo "✔ Deployment completed successfully at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "=============================================================================="
