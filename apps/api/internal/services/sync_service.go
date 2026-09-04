@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"opensource-pulse/api/internal/config"
@@ -127,13 +128,74 @@ func (s *SyncService) toDomain(gh *githubClient.Repository) repository.Repositor
 	}
 }
 
+// GenericTopicBlacklist defines topics that represent curated lists, collections,
+// learning materials, or generic labels rather than actual libraries/technologies.
+var GenericTopicBlacklist = map[string]bool{
+	"awesome":                 true,
+	"awesome-list":            true,
+	"awesome-lists":           true,
+	"list":                    true,
+	"lists":                   true,
+	"resources":               true,
+	"resource":                true,
+	"free":                    true,
+	"interview":               true,
+	"interviews":              true,
+	"interview-questions":     true,
+	"interview-preparation":   true,
+	"cheat-sheet":             true,
+	"cheatsheet":              true,
+	"cheatsheets":             true,
+	"book":                    true,
+	"books":                   true,
+	"tutorial":                true,
+	"tutorials":               true,
+	"tutorial-code":           true,
+	"education":               true,
+	"open-source":             true,
+	"opensource":              true,
+	"programming":             true,
+	"software":                true,
+	"development":             true,
+	"developer":               true,
+	"skills":                  true,
+	"collection":              true,
+	"curated":                 true,
+	"course":                  true,
+	"courses":                 true,
+	"guide":                   true,
+	"guides":                  true,
+	"learning":                true,
+	"documentation":           true,
+	"docs":                    true,
+	"algorithms":              true,
+	"dsa":                     true,
+	"competitive-programming": true,
+	"leetcode":                true,
+	"hacktoberfest":           true,
+	"beginner-friendly":       true,
+	"starter":                 true,
+	"template":                true,
+	"templates":               true,
+}
+
+func IsBlacklistedTopic(topic string) bool {
+	clean := strings.ToLower(strings.TrimSpace(topic))
+	return GenericTopicBlacklist[clean]
+}
+
 func (s *SyncService) ensureTechnology(ctx context.Context, topic string, repoID uint) {
-	slug := topic
+	topicClean := strings.ToLower(strings.TrimSpace(topic))
+	if topicClean == "" || IsBlacklistedTopic(topicClean) {
+		return
+	}
+
+	slug := topicClean
 	var tech technology.Technology
 	result := s.db.Where("slug = ?", slug).First(&tech)
 	if result.Error != nil {
 		tech = technology.Technology{
-			TechnologyName: topic,
+			TechnologyName: topicClean,
 			Slug:           slug,
 		}
 		s.db.Create(&tech)

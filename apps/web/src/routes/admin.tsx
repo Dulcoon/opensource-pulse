@@ -373,19 +373,21 @@ function AdminPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Dedicated Admin Navbar */}
-      <header className="h-14 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-sm bg-accent flex items-center justify-center text-background font-bold">
-            <Sliders className="h-4 w-4" />
-          </div>
+      <header className="h-16 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <img
+            src="/logo.png"
+            alt="OpenSource Pulse Logo"
+            className="h-11 w-auto object-contain shrink-0 drop-shadow-[0_0_16px_rgba(249,115,22,0.4)]"
+          />
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold tracking-tight text-foreground">OpenSource Pulse</span>
-              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-accent/20 text-accent uppercase font-semibold">
+              <span className="text-[15px] font-bold tracking-tight text-foreground">OpenSource Pulse</span>
+              <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-accent/20 text-accent uppercase font-bold tracking-wider">
                 ADMIN OPS
               </span>
             </div>
-            <div className="text-[9px] font-mono text-muted-foreground tracking-wider">
+            <div className="text-[10px] font-mono text-muted-foreground tracking-wider">
               Autonomous Intelligence Engine Control
             </div>
           </div>

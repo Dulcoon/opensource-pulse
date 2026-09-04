@@ -9,25 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RepositoriesRouteImport } from './routes/repositories'
-import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as RadarRouteImport } from './routes/radar'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RepositoriesIndexRouteImport } from './routes/repositories.index'
+import { Route as ReportsIndexRouteImport } from './routes/reports.index'
 import { Route as ReportsIdRouteImport } from './routes/reports.$id'
 import { Route as RepositoriesOwnerRepoRouteImport } from './routes/repositories.$owner.$repo'
 
-const RepositoriesRoute = RepositoriesRouteImport.update({
-  id: '/repositories',
-  path: '/repositories',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RadarRoute = RadarRouteImport.update({
   id: '/radar',
   path: '/radar',
@@ -48,15 +38,25 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RepositoriesIndexRoute = RepositoriesIndexRouteImport.update({
+  id: '/repositories/',
+  path: '/repositories/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsIndexRoute = ReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportsIdRoute = ReportsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ReportsRoute,
+  id: '/reports/$id',
+  path: '/reports/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const RepositoriesOwnerRepoRoute = RepositoriesOwnerRepoRouteImport.update({
-  id: '/$owner/$repo',
-  path: '/$owner/$repo',
-  getParentRoute: () => RepositoriesRoute,
+  id: '/repositories/$owner/$repo',
+  path: '/repositories/$owner/$repo',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -64,9 +64,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/radar': typeof RadarRoute
-  '/reports': typeof ReportsRouteWithChildren
-  '/repositories': typeof RepositoriesRouteWithChildren
   '/reports/$id': typeof ReportsIdRoute
+  '/reports/': typeof ReportsIndexRoute
+  '/repositories/': typeof RepositoriesIndexRoute
   '/repositories/$owner/$repo': typeof RepositoriesOwnerRepoRoute
 }
 export interface FileRoutesByTo {
@@ -74,9 +74,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/radar': typeof RadarRoute
-  '/reports': typeof ReportsRouteWithChildren
-  '/repositories': typeof RepositoriesRouteWithChildren
   '/reports/$id': typeof ReportsIdRoute
+  '/reports': typeof ReportsIndexRoute
+  '/repositories': typeof RepositoriesIndexRoute
   '/repositories/$owner/$repo': typeof RepositoriesOwnerRepoRoute
 }
 export interface FileRoutesById {
@@ -85,9 +85,9 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/analytics': typeof AnalyticsRoute
   '/radar': typeof RadarRoute
-  '/reports': typeof ReportsRouteWithChildren
-  '/repositories': typeof RepositoriesRouteWithChildren
   '/reports/$id': typeof ReportsIdRoute
+  '/reports/': typeof ReportsIndexRoute
+  '/repositories/': typeof RepositoriesIndexRoute
   '/repositories/$owner/$repo': typeof RepositoriesOwnerRepoRoute
 }
 export interface FileRouteTypes {
@@ -97,9 +97,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analytics'
     | '/radar'
-    | '/reports'
-    | '/repositories'
     | '/reports/$id'
+    | '/reports/'
+    | '/repositories/'
     | '/repositories/$owner/$repo'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -107,9 +107,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analytics'
     | '/radar'
+    | '/reports/$id'
     | '/reports'
     | '/repositories'
-    | '/reports/$id'
     | '/repositories/$owner/$repo'
   id:
     | '__root__'
@@ -117,9 +117,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analytics'
     | '/radar'
-    | '/reports'
-    | '/repositories'
     | '/reports/$id'
+    | '/reports/'
+    | '/repositories/'
     | '/repositories/$owner/$repo'
   fileRoutesById: FileRoutesById
 }
@@ -128,26 +128,14 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AnalyticsRoute: typeof AnalyticsRoute
   RadarRoute: typeof RadarRoute
-  ReportsRoute: typeof ReportsRouteWithChildren
-  RepositoriesRoute: typeof RepositoriesRouteWithChildren
+  ReportsIdRoute: typeof ReportsIdRoute
+  ReportsIndexRoute: typeof ReportsIndexRoute
+  RepositoriesIndexRoute: typeof RepositoriesIndexRoute
+  RepositoriesOwnerRepoRoute: typeof RepositoriesOwnerRepoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/repositories': {
-      id: '/repositories'
-      path: '/repositories'
-      fullPath: '/repositories'
-      preLoaderRoute: typeof RepositoriesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reports': {
-      id: '/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/radar': {
       id: '/radar'
       path: '/radar'
@@ -176,53 +164,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/repositories/': {
+      id: '/repositories/'
+      path: '/repositories'
+      fullPath: '/repositories/'
+      preLoaderRoute: typeof RepositoriesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports/': {
+      id: '/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof ReportsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reports/$id': {
       id: '/reports/$id'
-      path: '/$id'
+      path: '/reports/$id'
       fullPath: '/reports/$id'
       preLoaderRoute: typeof ReportsIdRouteImport
-      parentRoute: typeof ReportsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/repositories/$owner/$repo': {
       id: '/repositories/$owner/$repo'
-      path: '/$owner/$repo'
+      path: '/repositories/$owner/$repo'
       fullPath: '/repositories/$owner/$repo'
       preLoaderRoute: typeof RepositoriesOwnerRepoRouteImport
-      parentRoute: typeof RepositoriesRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface ReportsRouteChildren {
-  ReportsIdRoute: typeof ReportsIdRoute
-}
-
-const ReportsRouteChildren: ReportsRouteChildren = {
-  ReportsIdRoute: ReportsIdRoute,
-}
-
-const ReportsRouteWithChildren =
-  ReportsRoute._addFileChildren(ReportsRouteChildren)
-
-interface RepositoriesRouteChildren {
-  RepositoriesOwnerRepoRoute: typeof RepositoriesOwnerRepoRoute
-}
-
-const RepositoriesRouteChildren: RepositoriesRouteChildren = {
-  RepositoriesOwnerRepoRoute: RepositoriesOwnerRepoRoute,
-}
-
-const RepositoriesRouteWithChildren = RepositoriesRoute._addFileChildren(
-  RepositoriesRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AnalyticsRoute: AnalyticsRoute,
   RadarRoute: RadarRoute,
-  ReportsRoute: ReportsRouteWithChildren,
-  RepositoriesRoute: RepositoriesRouteWithChildren,
+  ReportsIdRoute: ReportsIdRoute,
+  ReportsIndexRoute: ReportsIndexRoute,
+  RepositoriesIndexRoute: RepositoriesIndexRoute,
+  RepositoriesOwnerRepoRoute: RepositoriesOwnerRepoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

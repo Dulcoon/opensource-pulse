@@ -3,7 +3,7 @@ import { FileText, Download, Share2, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { useReports } from "@/hooks/use-reports";
 
-export const Route = createFileRoute("/reports")({
+export const Route = createFileRoute("/reports/")({
   head: () => ({
     meta: [
       { title: "Intelligence Reports — OpenSource Pulse" },
@@ -48,8 +48,6 @@ function Reports() {
               params={{ id: String(reportList[0].id) }}
               className="block rounded-sm border border-border bg-card overflow-hidden relative group hover:border-accent/50"
             >
-              <div className="absolute inset-0 grid-bg opacity-30 pointer-events-none" />
-              <div className="absolute -top-32 -right-20 h-72 w-72 rounded-full bg-accent/15 blur-3xl" aria-hidden />
               <div className="relative grid grid-cols-12 gap-6 p-6 md:p-8">
                 <div className="col-span-12 lg:col-span-8">
                   <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-accent">

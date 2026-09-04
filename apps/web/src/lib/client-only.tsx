@@ -15,3 +15,20 @@ export function ClientDate({ date, format }: { date?: string | Date; format?: In
   }, [date]);
   return <>{text}</>;
 }
+
+export function ClientClock() {
+  const [timeStr, setTimeStr] = useState("UTC --:--");
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, "0");
+      const m = String(now.getUTCMinutes()).padStart(2, "0");
+      const s = String(now.getUTCSeconds()).padStart(2, "0");
+      setTimeStr(`UTC ${h}:${m}:${s}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  return <span>{timeStr}</span>;
+}

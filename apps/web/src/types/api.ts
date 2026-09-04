@@ -96,6 +96,7 @@ export interface FastestGrowingRepo {
   full_name: string;
   stars: number;
   growth: number;
+  primary_language?: string | null;
 }
 
 export interface WeeklyStats {
@@ -108,6 +109,7 @@ export interface WeeklyStats {
 export interface DashboardResponse {
   hot_technologies: TechnologyScore[];
   fastest_growing_repo: FastestGrowingRepo | null;
+  fastest_growing_repos?: FastestGrowingRepo[];
   emerging_technologies: TechnologyScore[];
   weekly_statistics: WeeklyStats | null;
   weekly_insight: DailyInsight | null;

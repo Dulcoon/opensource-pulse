@@ -86,7 +86,6 @@ function RepoDetail() {
 
         {/* AI Summary */}
         <DetailCard className="col-span-12 lg:col-span-8 p-6 relative overflow-hidden">
-          <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-accent/10 blur-3xl" aria-hidden />
           <div className="relative">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-accent">
               <Sparkles className="h-3.5 w-3.5" /> AI Summary
@@ -190,15 +189,37 @@ function RepoDetail() {
                   <XAxis dataKey="day" stroke="oklch(0.55 0 0)" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="oklch(0.55 0 0)" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip
+                    cursor={{ stroke: "oklch(0.623 0.214 259.815)", strokeWidth: 1, strokeDasharray: "3 3" }}
                     contentStyle={{
                       background: "oklch(0.205 0.004 285.823)",
                       border: "1px solid oklch(0.274 0.006 286)",
                       borderRadius: 8,
                       fontSize: 12,
+                      boxShadow: "0 10px 25px -5px rgba(0,0,0,0.6)",
                     }}
                   />
-                  <Area type="monotone" dataKey="stars" stroke="oklch(0.623 0.214 259.815)" fill="url(#g1)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="forks" stroke="oklch(0.723 0.187 142.495)" fill="url(#g2)" strokeWidth={2} />
+                  <Area
+                    type="monotone"
+                    dataKey="stars"
+                    stroke="oklch(0.623 0.214 259.815)"
+                    fill="url(#g1)"
+                    strokeWidth={2}
+                    isAnimationActive={true}
+                    animationDuration={900}
+                    animationEasing="ease-out"
+                    activeDot={{ r: 6, fill: "oklch(0.623 0.214 259.815)", stroke: "#09090b", strokeWidth: 2 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="forks"
+                    stroke="oklch(0.723 0.187 142.495)"
+                    fill="url(#g2)"
+                    strokeWidth={2}
+                    isAnimationActive={true}
+                    animationDuration={1100}
+                    animationEasing="ease-out"
+                    activeDot={{ r: 5, fill: "oklch(0.723 0.187 142.495)", stroke: "#09090b", strokeWidth: 2 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (

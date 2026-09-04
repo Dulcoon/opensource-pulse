@@ -210,7 +210,10 @@ function Analytics() {
           <ChartCard title="Language Distribution" subtitle="Aggregate stars captured per programming language">
             {langSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={langSeries} margin={{ top: 15, right: 10, left: -10, bottom: 10 }}>
+                <BarChart
+                  data={langSeries}
+                  margin={{ top: 15, right: 10, left: -10, bottom: 10 }}
+                >
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="name"
@@ -227,10 +230,19 @@ function Analytics() {
                     tickFormatter={formatCompactNumber}
                   />
                   <Tooltip
+                    cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
                     contentStyle={tooltipStyle}
                     formatter={(val: any) => [Number(val).toLocaleString() + " stars", "Total Stars"]}
                   />
-                  <Bar dataKey="stars" radius={[4, 4, 0, 0]} maxBarSize={45}>
+                  <Bar
+                    dataKey="stars"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={45}
+                    isAnimationActive={true}
+                    animationDuration={900}
+                    animationEasing="ease-out"
+                    activeBar={{ stroke: "#F97316", strokeWidth: 2, fillOpacity: 0.95 }}
+                  >
                     {langSeries.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
@@ -249,7 +261,11 @@ function Analytics() {
           <ChartCard title="Technology Leadership" subtitle="Highest adoption scores among tracked technologies">
             {topTechList.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topTechList} layout="vertical" margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
+                <BarChart
+                  data={topTechList}
+                  layout="vertical"
+                  margin={{ top: 10, right: 20, left: 20, bottom: 5 }}
+                >
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" horizontal={false} />
                   <XAxis
                     type="number"
@@ -269,10 +285,20 @@ function Analytics() {
                     width={90}
                   />
                   <Tooltip
+                    cursor={{ fill: "rgba(16, 185, 129, 0.08)" }}
                     contentStyle={tooltipStyle}
                     formatter={(val: any) => [`${val}/100 Score`, "Adoption Score"]}
                   />
-                  <Bar dataKey="score" fill="#10B981" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                  <Bar
+                    dataKey="score"
+                    fill="#10B981"
+                    radius={[0, 4, 4, 0]}
+                    maxBarSize={22}
+                    isAnimationActive={true}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                    activeBar={{ stroke: "#34D399", strokeWidth: 1.5, fill: "#059669" }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -284,7 +310,10 @@ function Analytics() {
           <ChartCard title="Repository Growth Momentum" subtitle="Total stars and fork engagement per period">
             {repoSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={repoSeries} margin={{ top: 15, right: 10, left: -10, bottom: 10 }}>
+                <BarChart
+                  data={repoSeries}
+                  margin={{ top: 15, right: 10, left: -10, bottom: 10 }}
+                >
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="month"
@@ -301,14 +330,35 @@ function Analytics() {
                     tickFormatter={formatCompactNumber}
                   />
                   <Tooltip
+                    cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
                     contentStyle={tooltipStyle}
                     formatter={(val: any) => [Number(val).toLocaleString(), ""]}
                   />
                   <Legend
                     wrapperStyle={{ fontSize: "11px", fontFamily: "monospace", paddingTop: "8px" }}
                   />
-                  <Bar dataKey="stars" name="Stars" fill="#FF7A00" radius={[4, 4, 0, 0]} maxBarSize={45} />
-                  <Bar dataKey="forks" name="Forks" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={45} />
+                  <Bar
+                    dataKey="stars"
+                    name="Stars"
+                    fill="#FF7A00"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={45}
+                    isAnimationActive={true}
+                    animationDuration={950}
+                    animationEasing="ease-out"
+                    activeBar={{ stroke: "#FDBA74", strokeWidth: 1.5 }}
+                  />
+                  <Bar
+                    dataKey="forks"
+                    name="Forks"
+                    fill="#3B82F6"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={45}
+                    isAnimationActive={true}
+                    animationDuration={1100}
+                    animationEasing="ease-out"
+                    activeBar={{ stroke: "#93C5FD", strokeWidth: 1.5 }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -320,7 +370,10 @@ function Analytics() {
           <ChartCard title="Contributor Engagement" subtitle="Active developer contributions across ecosystem">
             {contribSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={contribSeries} margin={{ top: 15, right: 10, left: -10, bottom: 10 }}>
+                <AreaChart
+                  data={contribSeries}
+                  margin={{ top: 15, right: 10, left: -10, bottom: 10 }}
+                >
                   <defs>
                     <linearGradient id="contribGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.6} />
@@ -343,6 +396,7 @@ function Analytics() {
                     tickFormatter={formatCompactNumber}
                   />
                   <Tooltip
+                    cursor={{ stroke: "#F59E0B", strokeWidth: 1, strokeDasharray: "3 3" }}
                     contentStyle={tooltipStyle}
                     formatter={(val: any) => [Number(val).toLocaleString() + " contributors", "Contributors"]}
                   />
@@ -351,9 +405,12 @@ function Analytics() {
                     dataKey="contributors"
                     name="Contributors"
                     stroke="#F59E0B"
-                    strokeWidth={3}
-                    dot={{ fill: "#F59E0B", r: 4, strokeWidth: 2, stroke: "#18181B" }}
-                    activeDot={{ r: 6, fill: "#FBBF24" }}
+                    strokeWidth={2.5}
+                    isAnimationActive={true}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
+                    dot={{ fill: "#F59E0B", r: 3.5, strokeWidth: 1.5, stroke: "#18181B" }}
+                    activeDot={{ r: 6, fill: "#FBBF24", stroke: "#09090b", strokeWidth: 2 }}
                     fill="url(#contribGrad)"
                   />
                 </AreaChart>

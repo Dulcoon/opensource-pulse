@@ -73,10 +73,10 @@ Top Technologies (Tech Radar):
 
 Total repositories tracked: %d
 
-Based on this data, write ONE paragraph (2-3 sentences) of insight about current open source trends. Be specific and data-driven.`,
+Based on this data, write ONE concise paragraph (2-3 sentences) of market intelligence about current open source trends. Highlight dominant technologies and movements. Be specific and data-driven. Do NOT use LaTeX or formula formatting. Write in English.`,
 		repoSummary, techSummary, len(topRepos))
 
-	system := "You are an open source intelligence analyst. Give concise, data-driven insight in Indonesian language. Just the paragraph, no preamble."
+	system := "You are an open source market intelligence analyst. Give concise, data-driven insight in English. Just the paragraph, no preamble."
 
 	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
@@ -137,16 +137,16 @@ Top Technologies (Tech Radar):
 
 Total repositories tracked: %d
 
-Write a weekly report (3-4 paragraphs) analyzing:
-1. Overall ecosystem trends
-2. Most notable repositories and why they matter
-3. Technology movements (rising/declining)
-4. Outlook for next week
+Write a weekly executive intelligence report (3-4 paragraphs) analyzing:
+1. Overall ecosystem market trends
+2. Most notable breakout repositories and why they matter
+3. Technology sector movements (rising vs declining)
+4. Strategic outlook for the coming week
 
-Be specific, data-driven, and write in Indonesian.`,
+Be specific, data-driven, and write in professional English. Do NOT use LaTeX or formula formatting.`,
 		repoSummary, techSummary, len(topRepos))
 
-	system := "You are an open source intelligence analyst writing a weekly report. Write in Indonesian language. Be specific and data-driven."
+	system := "You are an open source market intelligence analyst writing an executive report. Write in professional English. Be specific and data-driven."
 
 	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
