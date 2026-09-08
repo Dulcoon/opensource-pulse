@@ -75,8 +75,7 @@ services:
       - /app/node_modules
       - /app/.tanstack
     depends_on:
-      api:
-        condition: service_healthy
+      - api
     networks:
       - opensource_pulse
 
