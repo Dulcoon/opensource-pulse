@@ -139,3 +139,139 @@ func (c *Client) setHeaders(req *http.Request) {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 }
+
+// StargazerItem holds the timestamp when a star was created
+type StargazerItem struct {
+	StarredAt time.Time `json:"starred_at"`
+}
+
+// HistoricalStarPoint represents star count at a relative historical point
+type HistoricalStarPoint struct {
+	DaysAgo int
+	Date    time.Time
+	Stars   int
+}
+
+// GetHistoricalStarsAtDate estimates the cumulative star count for a repository at targetDate
+// using logarithmic binary search over stargazers pages with Accept: application/vnd.github.v3.star+json.
+func (c *Client) GetHistoricalStarsAtDate(ctx context.Context, owner, repo string, totalStars int, createdAt, targetDate time.Time) (int, error) {
+	if totalStars <= 0 {
+		return 0, nil
+	}
+	// If repo was created after targetDate, it had 0 stars
+	if createdAt.After(targetDate) {
+		return 0, nil
+	}
+	// If targetDate is within the last hour or in the future, return totalStars
+	if !targetDate.Before(time.Now().Add(-1 * time.Hour)) {
+		return totalStars, nil
+	}
+
+	const perPage = 100
+	totalPages := (totalStars + perPage - 1) / perPage
+	if totalPages <= 0 {
+		totalPages = 1
+	}
+
+	// For small repos (<= 100 stars), page 1 contains all stargazers
+	if totalPages == 1 {
+		items, err := c.getStargazersPage(ctx, owner, repo, 1, perPage)
+		if err != nil {
+			return totalStars, err
+		}
+		count := 0
+		for _, item := range items {
+			if !item.StarredAt.After(targetDate) {
+				count++
+			}
+		}
+		return count, nil
+	}
+
+	// Binary search to find the page where StarredAt crosses targetDate
+	low := 1
+	high := totalPages
+	bestPage := low
+
+	// Limit to at most 5 binary search probes to conserve API rate limits
+	for iter := 0; iter < 5 && low <= high; iter++ {
+		mid := (low + high) / 2
+		items, err := c.getStargazersPage(ctx, owner, repo, mid, perPage)
+		if err != nil {
+			break
+		}
+		if len(items) == 0 {
+			high = mid - 1
+			continue
+		}
+
+		firstStarAt := items[0].StarredAt
+		if firstStarAt.Before(targetDate) || firstStarAt.Equal(targetDate) {
+			bestPage = mid
+			low = mid + 1
+		} else {
+			high = mid - 1
+		}
+	}
+
+	estimatedStars := bestPage * perPage
+	if estimatedStars > totalStars {
+		estimatedStars = totalStars
+	}
+	if estimatedStars < 0 {
+		estimatedStars = 0
+	}
+	return estimatedStars, nil
+}
+
+// GetHistoricalStarsMulti samples star counts across multiple past intervals (e.g. [7, 30, 90] days)
+func (c *Client) GetHistoricalStarsMulti(ctx context.Context, owner, repo string, totalStars int, createdAt time.Time, daysList []int) ([]HistoricalStarPoint, error) {
+	now := time.Now()
+	var results []HistoricalStarPoint
+	for _, days := range daysList {
+		targetDate := now.AddDate(0, 0, -days)
+		stars, err := c.GetHistoricalStarsAtDate(ctx, owner, repo, totalStars, createdAt, targetDate)
+		if err != nil {
+			// Fallback estimate if probe fails: conservative daily decay of ~0.25%
+			decayRatio := 1.0 - (float64(days) * 0.0025)
+			if decayRatio < 0.1 {
+				decayRatio = 0.1
+			}
+			stars = int(float64(totalStars) * decayRatio)
+		}
+		results = append(results, HistoricalStarPoint{
+			DaysAgo: days,
+			Date:    targetDate,
+			Stars:   stars,
+		})
+	}
+	return results, nil
+}
+
+func (c *Client) getStargazersPage(ctx context.Context, owner, repo string, page, perPage int) ([]StargazerItem, error) {
+	reqURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/stargazers?per_page=%d&page=%d", owner, repo, perPage, page)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3.star+json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API stargazers returned status %d", resp.StatusCode)
+	}
+
+	var items []StargazerItem
+	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -14,6 +14,10 @@ export function triggerCalculateRadar(): Promise<ActionResponse> {
   return post<ActionResponse>("/radar/calculate");
 }
 
+export function triggerBackfillHistory(): Promise<ActionResponse> {
+  return post<ActionResponse>("/sync/backfill-history");
+}
+
 export function triggerGenerateInsight(): Promise<ActionResponse> {
   return post<ActionResponse>("/reports/generate-insight");
 }

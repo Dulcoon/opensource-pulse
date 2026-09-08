@@ -85,7 +85,7 @@ func main() {
 	healthSvc := services.NewHealthService(ghClient, repoRepo, db)
 	healthHandler := handlers.NewHealthHandler(healthSvc)
 
-	syncSvc := services.NewSyncService(cfg, ghClient, repoRepo, techRepo, db, aiSvc, healthSvc)
+	syncSvc := services.NewSyncService(cfg, ghClient, repoRepo, techRepo, db, aiSvc, healthSvc, radarCalc)
 	syncHandler := handlers.NewSyncHandler(syncSvc)
 
 	insightSvc := services.NewInsightService(gemClient, repoRepo, techRepo, reportRepo)
@@ -150,6 +150,7 @@ func main() {
 		protected.Use(middleware.AuthMiddleware(authSvc))
 		{
 			protected.POST("/sync/repositories", syncHandler.SyncRepositories)
+			protected.POST("/sync/backfill-history", syncHandler.BackfillHistory)
 			protected.POST("/radar/calculate", radarHandler.CalculateRadar)
 			protected.POST("/repositories/:id/summarize", aiHandler.GenerateSummary)
 			protected.POST("/repositories/:id/calculate-health", healthHandler.CalculateHealth)

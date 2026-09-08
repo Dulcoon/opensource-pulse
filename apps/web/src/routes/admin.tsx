@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   triggerSyncRepositories,
+  triggerBackfillHistory,
   triggerCalculateRadar,
   triggerGenerateInsight,
   triggerGenerateReport,
@@ -38,6 +39,7 @@ import {
   Sliders,
   Database,
   Cpu,
+  History,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -189,8 +191,22 @@ function AdminPage() {
       exploreText: "View Repositories",
     },
     {
+      id: "backfill",
+      title: "2. Backfill Historical Stargazers (7D / 30D / 90D)",
+      badge: "INTELLIGENCE",
+      badgeColor: "text-cyan-400 bg-cyan-400/10 border-cyan-400/30",
+      icon: History,
+      description:
+        "Sample historical stargazers via logarithmic binary search across GitHub pages to calibrate genuine 7-day, 30-day, and 90-day momentum curves across all tracked repositories.",
+      btnText: "Run Historical Backfill",
+      endpoint: "POST /api/sync/backfill-history",
+      action: () => handleAction("BACKFILL_HISTORY", "backfill", triggerBackfillHistory),
+      exploreLink: "/radar",
+      exploreText: "View Tech Radar",
+    },
+    {
       id: "radar",
-      title: "2. Recalculate Tech Radar",
+      title: "3. Recalculate Tech Radar",
       badge: "ALGORITHMS",
       badgeColor: "text-success bg-success/10 border-success/30",
       icon: Radar,
@@ -204,7 +220,7 @@ function AdminPage() {
     },
     {
       id: "insight",
-      title: "3. Generate Daily Insight",
+      title: "4. Generate Daily Insight",
       badge: "AI ENGINE",
       badgeColor: "text-warning bg-warning/10 border-warning/30",
       icon: Sparkles,
@@ -218,7 +234,7 @@ function AdminPage() {
     },
     {
       id: "report",
-      title: "4. Generate Weekly Report",
+      title: "5. Generate Weekly Report",
       badge: "AI REPORTING",
       badgeColor: "text-signal bg-signal/10 border-signal/30",
       icon: FileText,

@@ -23,10 +23,11 @@ type SyncService struct {
 	db        *gorm.DB
 	aiSvc     *AIService
 	healthSvc *HealthService
+	radarCalc *RadarCalculator
 }
 
-func NewSyncService(cfg *config.Config, github *githubClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB, aiSvc *AIService, healthSvc *HealthService) *SyncService {
-	return &SyncService{cfg: cfg, github: github, repo: repo, tech: tech, db: db, aiSvc: aiSvc, healthSvc: healthSvc}
+func NewSyncService(cfg *config.Config, github *githubClient.Client, repo *repositories.RepositoryRepo, tech *repositories.TechnologyRepo, db *gorm.DB, aiSvc *AIService, healthSvc *HealthService, radarCalc *RadarCalculator) *SyncService {
+	return &SyncService{cfg: cfg, github: github, repo: repo, tech: tech, db: db, aiSvc: aiSvc, healthSvc: healthSvc, radarCalc: radarCalc}
 }
 
 func (s *SyncService) SyncRepositories(ctx context.Context) error {
@@ -66,6 +67,34 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 			}
 			s.db.Create(&snapshot)
 
+			// Auto-sample historical snapshots (7, 30, 90 days ago) if repository lacks historical data
+			var historyCount int64
+			sixDaysAgo := time.Now().AddDate(0, 0, -6)
+			s.db.Model(&repository.RepositorySnapshot{}).
+				Where("repository_id = ? AND captured_at <= ?", repo.ID, sixDaysAgo).
+				Count(&historyCount)
+
+			if historyCount == 0 && gh.StargazersCount > 0 {
+				go func(owner, repoName string, stars int, createdAt time.Time, repoID uint, forks, issues int) {
+					ctxHist, cancelHist := context.WithTimeout(context.Background(), 45*time.Second)
+					defer cancelHist()
+					points, err := s.github.GetHistoricalStarsMulti(ctxHist, owner, repoName, stars, createdAt, []int{7, 30, 90})
+					if err == nil {
+						for _, p := range points {
+							s.db.Create(&repository.RepositorySnapshot{
+								RepositoryID: repoID,
+								Stars:        p.Stars,
+								Forks:        forks,
+								OpenIssues:   issues,
+								Contributors: 0,
+								CapturedAt:   p.Date,
+							})
+						}
+						log.Printf("[Auto] Backfilled historical stars (7d/30d/90d) for %s/%s", owner, repoName)
+					}
+				}(gh.Owner.Login, gh.Name, gh.StargazersCount, gh.CreatedAt, repo.ID, gh.ForksCount, gh.OpenIssuesCount)
+			}
+
 			// Simpan topics sebagai teknologi
 			for _, topic := range gh.Topics {
 				s.ensureTechnology(ctx, topic, repo.ID)
@@ -98,6 +127,79 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// BackfillHistoricalSnapshots samples historical stars (7d, 30d, 90d) for all repositories lacking historical snapshots
+func (s *SyncService) BackfillHistoricalSnapshots(ctx context.Context) (int, error) {
+	log.Println("[HistoricalBackfill] Starting comprehensive historical stargazers backfill...")
+
+	var allRepos []repository.Repository
+	if err := s.db.WithContext(ctx).Find(&allRepos).Error; err != nil {
+		return 0, err
+	}
+
+	daysToSample := []int{7, 30, 90}
+	processedCount := 0
+
+	for _, r := range allRepos {
+		select {
+		case <-ctx.Done():
+			return processedCount, ctx.Err()
+		default:
+		}
+
+		var existingOldCount int64
+		sixDaysAgo := time.Now().AddDate(0, 0, -6)
+		s.db.Model(&repository.RepositorySnapshot{}).
+			Where("repository_id = ? AND captured_at <= ?", r.ID, sixDaysAgo).
+			Count(&existingOldCount)
+
+		if existingOldCount >= 2 {
+			continue // Already has historical snapshots
+		}
+
+		log.Printf("[HistoricalBackfill] Sampling historical stars for %s (current: %d)...", r.FullName, r.Stars)
+		points, err := s.github.GetHistoricalStarsMulti(ctx, r.Owner, r.RepositoryName, r.Stars, r.CreatedAt, daysToSample)
+		if err != nil {
+			log.Printf("[HistoricalBackfill] Failed to sample %s: %v", r.FullName, err)
+			continue
+		}
+
+		for _, p := range points {
+			var exists int64
+			dayStart := p.Date.Truncate(24 * time.Hour)
+			dayEnd := dayStart.Add(24 * time.Hour)
+			s.db.Model(&repository.RepositorySnapshot{}).
+				Where("repository_id = ? AND captured_at >= ? AND captured_at < ?", r.ID, dayStart, dayEnd).
+				Count(&exists)
+
+			if exists == 0 {
+				snap := repository.RepositorySnapshot{
+					RepositoryID: r.ID,
+					Stars:        p.Stars,
+					Forks:        r.Forks,
+					OpenIssues:   r.OpenIssues,
+					Contributors: 0,
+					CapturedAt:   p.Date,
+				}
+				s.db.Create(&snap)
+			}
+		}
+
+		processedCount++
+		time.Sleep(150 * time.Millisecond) // Polite rate limit pacing
+	}
+
+	log.Printf("[HistoricalBackfill] Successfully backfilled %d repositories. Recalculating Tech Radar...", processedCount)
+	if s.radarCalc != nil {
+		if err := s.radarCalc.Calculate(ctx); err != nil {
+			log.Printf("[HistoricalBackfill] Radar recalculation error: %v", err)
+		} else {
+			log.Println("[HistoricalBackfill] Tech Radar scores recalculated successfully!")
+		}
+	}
+
+	return processedCount, nil
 }
 
 func (s *SyncService) toDomain(gh *githubClient.Repository) repository.Repository {

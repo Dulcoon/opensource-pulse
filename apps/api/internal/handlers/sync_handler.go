@@ -25,3 +25,12 @@ func (h *SyncHandler) SyncRepositories(c *gin.Context) {
 	}()
 	c.JSON(http.StatusAccepted, gin.H{"message": "sync started"})
 }
+
+func (h *SyncHandler) BackfillHistory(c *gin.Context) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		h.svc.BackfillHistoricalSnapshots(ctx)
+	}()
+	c.JSON(http.StatusAccepted, gin.H{"message": "historical stargazers backfill process initiated in background"})
+}
