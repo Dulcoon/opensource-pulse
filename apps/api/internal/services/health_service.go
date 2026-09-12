@@ -37,11 +37,11 @@ func (s *HealthService) CalculateAndSave(ctx context.Context, repoID uint) (*rep
 		lastRelease = &release.PublishedAt
 	}
 
-	// Ambil snapshot terbaru buat contributors
+	// Ambil contributors terakhir yang benar-benar teramati (bukan 0 dari
+	// snapshot yang tidak mengobservasinya).
 	contributors := 0
-	snapshots, _ := s.repo.FindSnapshotsByRepoID(ctx, repoID)
-	if len(snapshots) > 0 {
-		contributors = snapshots[0].Contributors
+	if known, ok := s.repo.FindLatestKnownContributors(ctx, repoID); ok {
+		contributors = known
 	}
 
 	activity := calculateActivity(r.UpdatedAt, now)

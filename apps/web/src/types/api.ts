@@ -21,9 +21,9 @@ export interface RepositorySnapshot {
   id: number;
   repository_id: number;
   stars: number;
-  forks: number;
-  open_issues: number;
-  contributors: number;
+  forks: number | null;
+  open_issues: number | null;
+  contributors: number | null;
   captured_at: string;
 }
 

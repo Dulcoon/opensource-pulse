@@ -25,7 +25,8 @@ export const Route = createFileRoute("/radar")({
       { title: "Tech Radar — OpenSource Pulse" },
       {
         name: "description",
-        content: "Interactive intelligence radar mapping open-source technology momentum across 4 empirical quadrants.",
+        content:
+          "Interactive intelligence radar mapping open-source technology momentum across 4 empirical quadrants.",
       },
     ],
   }),
@@ -67,7 +68,7 @@ const QUADRANT_CONFIG: Record<
 > = {
   Exploding: {
     label: "Exploding",
-    description: "Breakout velocity (>70 score & >15% surge)",
+    description: "Breakout velocity (score ≥ 70 or growth ≥ +20%)",
     color: "#10B981", // emerald
     dotColor: "#34D399",
     badgeStyle: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
@@ -78,7 +79,7 @@ const QUADRANT_CONFIG: Record<
   },
   Rising: {
     label: "Rising",
-    description: "Strong steady momentum (>45 score)",
+    description: "Strong steady momentum (score ≥ 45 or growth ≥ +10%)",
     color: "#38BDF8", // sky blue
     dotColor: "#60A5FA",
     badgeStyle: "bg-sky-500/10 text-sky-400 border-sky-500/30",
@@ -116,40 +117,43 @@ const QUADRANT_METHODOLOGY = [
     type: "Exploding" as QuadrantType,
     title: "Exploding",
     tagline: "Breakout Surge",
-    criteria: "Score > 70 & Velocity > +15%",
+    criteria: "Score ≥ 70 or velocity ≥ +20%",
     color: "#10B981",
     borderClass: "border-emerald-500/40 hover:border-emerald-500 hover:shadow-emerald-950/20",
     badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
     Icon: Flame,
     definition:
       "Nascent or breakout technologies experiencing exponential developer adoption over the trailing 7 days. Characterized by explosive fork velocity and surging contributor influx.",
-    action: "Investigate immediately. Prime candidates for securing an early-mover architectural advantage.",
+    action:
+      "Investigate immediately. Prime candidates for securing an early-mover architectural advantage.",
   },
   {
     type: "Rising" as QuadrantType,
     title: "Rising",
     tagline: "High Velocity",
-    criteria: "Score 45–70 & Positive Growth",
+    criteria: "Score ≥ 45 or positive growth ≥ +10%",
     color: "#38BDF8",
     borderClass: "border-sky-500/40 hover:border-sky-500 hover:shadow-sky-950/20",
     badgeClass: "bg-sky-500/10 text-sky-400 border-sky-500/30",
     Icon: TrendingUp,
     definition:
       "Technologies exhibiting steady, dependable upward momentum. Field-proven reliability with expanding production adoption across enterprise engineering stacks.",
-    action: "Strong adoption candidate. Evaluate for inclusion in upcoming architecture cycles and production roadmaps.",
+    action:
+      "Strong adoption candidate. Evaluate for inclusion in upcoming architecture cycles and production roadmaps.",
   },
   {
     type: "Stable" as QuadrantType,
     title: "Stable",
     tagline: "Ecosystem Pillar",
-    criteria: "Mature Standard (0–15% Velocity)",
+    criteria: "Score ≥ 20 or non-negative growth",
     color: "#F59E0B",
     borderClass: "border-amber-500/40 hover:border-amber-500 hover:shadow-amber-950/20",
     badgeClass: "bg-amber-500/10 text-amber-400 border-amber-500/30",
     Icon: Minus,
     definition:
       "Battle-tested de-facto industry standards. Substantial cumulative star volume with plateaued velocity due to broad market penetration and mature maintenance.",
-    action: "Retain & maintain. Highly dependable production bedrock without pressing urgency for re-platforming.",
+    action:
+      "Retain & maintain. Highly dependable production bedrock without pressing urgency for re-platforming.",
   },
   {
     type: "Declining" as QuadrantType,
@@ -162,7 +166,8 @@ const QUADRANT_METHODOLOGY = [
     Icon: TrendingDown,
     definition:
       "Technologies losing active developer mindshare due to infrequent releases, legacy status, or community migration toward superior modern paradigms.",
-    action: "Assess technical debt. Monitor dependencies and scaffold migration plans toward active alternatives.",
+    action:
+      "Assess technical debt. Monitor dependencies and scaffold migration plans toward active alternatives.",
   },
 ];
 
@@ -351,7 +356,10 @@ function RadarPage() {
                       : "bg-background text-muted-foreground hover:text-foreground border border-border/80"
                   }`}
                 >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: cfg.color }}
+                  />
                   {q} ({count})
                 </button>
               );
@@ -381,7 +389,8 @@ function RadarPage() {
                 <span>Polar Velocity Scope</span>
               </div>
               <div className="text-[10px] font-mono text-muted-foreground">
-                Inner Core = <span className="text-emerald-400 font-semibold">100 Pts (Breakout)</span>
+                Inner Core ={" "}
+                <span className="text-emerald-400 font-semibold">100 Pts (Breakout)</span>
               </div>
             </div>
 
@@ -528,9 +537,7 @@ function RadarPage() {
                         stroke={isFocused ? "#FFFFFF" : "rgba(0,0,0,0.8)"}
                         strokeWidth={isFocused ? 2 : 1}
                         style={{
-                          filter: isFocused
-                            ? `drop-shadow(0 0 8px ${cfg.color})`
-                            : undefined,
+                          filter: isFocused ? `drop-shadow(0 0 8px ${cfg.color})` : undefined,
                         }}
                       />
 
@@ -610,7 +617,9 @@ function RadarPage() {
                     <VelocityScoreExplainer score={activeItem.score} align="end" />
                     <div className="text-2xl font-bold font-mono text-foreground tracking-tight">
                       {activeItem.score}
-                      <span className="text-[11px] font-normal text-muted-foreground ml-0.5">/100</span>
+                      <span className="text-[11px] font-normal text-muted-foreground ml-0.5">
+                        /100
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -733,10 +742,7 @@ function RadarPage() {
                             </div>
                           </td>
                           <td className="px-2 py-2 text-[10px]">
-                            <span
-                              className="capitalize"
-                              style={{ color: cfg.color }}
-                            >
+                            <span className="capitalize" style={{ color: cfg.color }}>
                               {item.quadrant}
                             </span>
                           </td>
@@ -745,9 +751,7 @@ function RadarPage() {
                           </td>
                           <td className="px-3 py-2 text-right tabular">
                             <span
-                              className={
-                                item.growth >= 0 ? "text-emerald-400" : "text-rose-400"
-                              }
+                              className={item.growth >= 0 ? "text-emerald-400" : "text-rose-400"}
                             >
                               {item.growth >= 0 ? "+" : ""}
                               {item.growth}%
@@ -778,12 +782,14 @@ function RadarPage() {
                   </span>
                 </h2>
                 <p className="text-[11px] font-mono text-muted-foreground">
-                  Algorithmic momentum taxonomy calibrated from 7-day velocity deltas and market adoption scores.
+                  Algorithmic momentum taxonomy calibrated from 7-day velocity deltas and market
+                  adoption scores.
                 </p>
               </div>
             </div>
             <div className="text-[10px] font-mono text-muted-foreground shrink-0">
-              <span className="text-accent font-semibold uppercase tracking-wider">Tip:</span> Click any card to filter the radar view above
+              <span className="text-accent font-semibold uppercase tracking-wider">Tip:</span> Click
+              any card to filter the radar view above
             </div>
           </div>
 
@@ -836,9 +842,7 @@ function RadarPage() {
                     <span className="text-muted-foreground block text-[9px] uppercase tracking-wider">
                       Strategic Directive:
                     </span>
-                    <span className="text-foreground/90 leading-tight block mt-1">
-                      {m.action}
-                    </span>
+                    <span className="text-foreground/90 leading-tight block mt-1">{m.action}</span>
                   </div>
                 </div>
               );

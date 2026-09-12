@@ -1,10 +1,6 @@
 import * as React from "react";
 import { HelpCircle, Calculator, Sparkles, Layers, Activity } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface VelocityScoreExplainerProps {
   score?: number;
@@ -60,16 +56,15 @@ export function VelocityScoreExplainer({
               <span className="text-[10px] text-muted-foreground block text-[9px] uppercase">
                 Current
               </span>
-              <span className="text-[12px] font-bold text-accent">
-                {score}/100
-              </span>
+              <span className="text-[12px] font-bold text-accent">{score}/100</span>
             </div>
           )}
         </div>
 
         {/* Narrative Description */}
         <p className="text-[11px] text-muted-foreground leading-relaxed font-sans">
-          A composite momentum index (0–100) that quantifies technology traction and community adoption speed over a rolling 7-day snapshot window.
+          A composite momentum index (0–100) that quantifies technology traction and community
+          adoption speed over a rolling 7-day snapshot window.
         </p>
 
         {/* Formula Box */}
@@ -90,7 +85,8 @@ export function VelocityScoreExplainer({
                 <span className="text-emerald-400 font-bold">Max 50 pts</span>
               </div>
               <p className="text-[10px] text-muted-foreground pl-4 leading-tight">
-                Normalized net-new GitHub stars accumulated across tracked repositories in the past 7 days.
+                Normalized net-new GitHub stars accumulated across tracked repositories in the past
+                7 days.
               </p>
             </div>
 
@@ -104,7 +100,8 @@ export function VelocityScoreExplainer({
                 <span className="text-sky-400 font-bold">Max 30 pts</span>
               </div>
               <p className="text-[10px] text-muted-foreground pl-4 leading-tight">
-                Percentage expansion velocity relative to historical baseline, highlighting breakout emerging tech.
+                Percentage expansion velocity relative to historical baseline, highlighting breakout
+                emerging tech.
               </p>
             </div>
 
@@ -118,7 +115,8 @@ export function VelocityScoreExplainer({
                 <span className="text-amber-400 font-bold">Max 20 pts</span>
               </div>
               <p className="text-[10px] text-muted-foreground pl-4 leading-tight">
-                Count of distinct production repositories actively utilizing or tagging this technology.
+                Count of distinct production repositories actively utilizing or tagging this
+                technology.
               </p>
             </div>
           </div>
@@ -146,12 +144,12 @@ export function VelocityScoreExplainer({
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
               <span className="text-foreground">Stable:</span>
-              <span className="text-muted-foreground">≥20 pts</span>
+              <span className="text-muted-foreground">≥20 or ≥0%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
               <span className="text-foreground">Declining:</span>
-              <span className="text-muted-foreground">&lt;20 pts</span>
+              <span className="text-muted-foreground">below Stable</span>
             </div>
           </div>
         </div>

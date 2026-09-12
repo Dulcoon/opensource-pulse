@@ -1,7 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
-import { ArrowUpRight, Check, Star, GitFork, AlertCircle, ExternalLink, Sparkles } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+import {
+  ArrowUpRight,
+  Check,
+  Star,
+  GitFork,
+  AlertCircle,
+  ExternalLink,
+  Sparkles,
+} from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { useRepositoryByOwner, useRepositorySnapshots } from "@/hooks/use-repositories";
 import { DetailCard, HealthBar } from "@/features/repositories/detail/detail-ui";
@@ -18,9 +34,15 @@ export const Route = createFileRoute("/repositories/$owner/$repo")({
 
 const ranges = ["7D", "30D", "90D"] as const;
 
+const RANGE_DAYS: Record<(typeof ranges)[number], number> = {
+  "7D": 7,
+  "30D": 30,
+  "90D": 90,
+};
+
 function RepoDetail() {
   const { owner, repo } = Route.useParams();
-  const [range] = useState<typeof ranges[number]>("30D");
+  const [range, setRange] = useState<(typeof ranges)[number]>("30D");
 
   const { data: detail, isLoading } = useRepositoryByOwner(owner, repo);
   const { data: snapshots } = useRepositorySnapshots(detail?.repository.id ?? 0);
@@ -29,24 +51,46 @@ function RepoDetail() {
   const summary = detail?.summary;
   const health = detail?.health_score;
 
+  // Never invent analysis output: missing AI fields render as explicitly
+  // missing, never as plausible-looking samples.
   const keyFeatures: string[] = summary?.key_features
-    ? (Array.isArray(summary.key_features) ? summary.key_features : [])
-    : ["Zero-config setup", "Type-safe APIs", "Excellent documentation", "Active maintainer community"];
-
-  const useCases: string[] = summary?.use_cases
-    ? (Array.isArray(summary.use_cases) ? summary.use_cases : [])
-    : ["Production-grade AI agents", "Internal developer tools", "Research prototyping", "Edge deployments"];
-
-  const similarProjects: string[] = summary?.similar_projects
-    ? (Array.isArray(summary.similar_projects) ? summary.similar_projects : [])
+    ? Array.isArray(summary.key_features)
+      ? summary.key_features
+      : []
     : [];
 
+  const useCases: string[] = summary?.use_cases
+    ? Array.isArray(summary.use_cases)
+      ? summary.use_cases
+      : []
+    : [];
+
+  const similarProjects: string[] = summary?.similar_projects
+    ? Array.isArray(summary.similar_projects)
+      ? summary.similar_projects
+      : []
+    : [];
+
+  const cutoff = Date.now() - RANGE_DAYS[range] * 24 * 3600 * 1000;
   const chartData = snapshots?.length
-    ? [...snapshots].reverse().map((s) => ({
-        day: new Date(s.captured_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        stars: s.stars,
-        forks: s.forks,
-      }))
+    ? [...snapshots]
+        .reverse()
+        .filter((s) => new Date(s.captured_at).getTime() >= cutoff)
+        .map((s) => ({
+          day: new Date(s.captured_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          fullDate: new Date(s.captured_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+          stars: s.stars,
+          // forks may be unobserved (null) on historical points: recharts
+          // renders a gap instead of a fabricated zero.
+          forks: s.forks,
+        }))
     : [];
 
   return (
@@ -72,7 +116,11 @@ function RepoDetail() {
           {[
             { label: "Stars", value: r ? r.stars.toLocaleString() : "—", icon: Star },
             { label: "Forks", value: r ? r.forks.toLocaleString() : "—", icon: GitFork },
-            { label: "Open Issues", value: r ? r.open_issues.toLocaleString() : "—", icon: AlertCircle },
+            {
+              label: "Open Issues",
+              value: r ? r.open_issues.toLocaleString() : "—",
+              icon: AlertCircle,
+            },
             { label: "Primary Language", value: r?.primary_language || "—", icon: Sparkles },
           ].map((s) => (
             <DetailCard key={s.label} className="p-4">
@@ -93,34 +141,57 @@ function RepoDetail() {
             {summary?.quick_summary ? (
               <>
                 <h2 className="mt-3 text-lg font-semibold">Quick Summary</h2>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{summary.quick_summary}</p>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                  {summary.quick_summary}
+                </p>
                 {summary.difficulty_level && (
                   <div className="mt-4 inline-flex items-center gap-2 text-xs">
-                    <span className="rounded-md border border-border px-2 py-0.5 text-muted-foreground">Difficulty</span>
+                    <span className="rounded-md border border-border px-2 py-0.5 text-muted-foreground">
+                      Difficulty
+                    </span>
                     <span className="text-foreground">{summary.difficulty_level}</span>
                   </div>
                 )}
 
                 <h3 className="mt-6 text-sm font-semibold">Key Features</h3>
-                <ul className="mt-3 space-y-2">
-                  {keyFeatures.map((f: string) => (
-                    <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-success shrink-0 mt-0.5" />
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
+                {keyFeatures.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {keyFeatures.map((f: string) => (
+                      <li key={f} className="flex items-start gap-2 text-sm">
+                        <Check className="h-4 w-4 text-success shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Not provided by this analysis.
+                  </p>
+                )}
 
                 <h3 className="mt-6 text-sm font-semibold">Use Cases</h3>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {useCases.map((u: string) => (
-                    <div key={u} className="rounded-lg border border-border bg-background/40 p-3 text-xs">{u}</div>
-                  ))}
-                </div>
+                {useCases.length > 0 ? (
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {useCases.map((u: string) => (
+                      <div
+                        key={u}
+                        className="rounded-lg border border-border bg-background/40 p-3 text-xs"
+                      >
+                        {u}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Not provided by this analysis.
+                  </p>
+                )}
               </>
             ) : (
               <div className="mt-4 text-sm text-muted-foreground">
-                {isLoading ? "Generating AI summary..." : "No AI summary available yet. Trigger sync to generate."}
+                {isLoading
+                  ? "Generating AI summary..."
+                  : "No AI summary available yet. Trigger sync to generate."}
               </div>
             )}
           </div>
@@ -132,12 +203,22 @@ function RepoDetail() {
           {health ? (
             <>
               <div className="mt-4 flex items-center justify-between">
-                <div className="text-4xl font-semibold tracking-tight">{Math.round(health.overall_score ?? 0)}</div>
-                <div className={`text-xs ${
-                  health.status === "Excellent" ? "text-success" :
-                  health.status === "Good" ? "text-signal" :
-                  health.status === "Fair" ? "text-warning" : "text-destructive"
-                }`}>{health.status}</div>
+                <div className="text-4xl font-semibold tracking-tight">
+                  {Math.round(health.overall_score ?? 0)}
+                </div>
+                <div
+                  className={`text-xs ${
+                    health.status === "Excellent"
+                      ? "text-success"
+                      : health.status === "Good"
+                        ? "text-signal"
+                        : health.status === "Fair"
+                          ? "text-warning"
+                          : "text-destructive"
+                  }`}
+                >
+                  {health.status}
+                </div>
               </div>
               <div className="mt-5 space-y-4">
                 <HealthBar label="Activity" value={Math.round(health.activity_score ?? 0)} />
@@ -164,7 +245,8 @@ function RepoDetail() {
               {ranges.map((r) => (
                 <button
                   key={r}
-                  className={`px-2.5 py-1 text-xs rounded ${range === r ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setRange(r)}
+                  className={`px-2.5 py-1 text-xs rounded cursor-pointer ${range === r ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {r}
                 </button>
@@ -185,11 +267,25 @@ function RepoDetail() {
                       <stop offset="100%" stopColor="oklch(0.723 0.187 142.495)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="oklch(0.274 0.006 286)" strokeDasharray="2 4" vertical={false} />
-                  <XAxis dataKey="day" stroke="oklch(0.55 0 0)" fontSize={11} tickLine={false} axisLine={false} />
+                  <CartesianGrid
+                    stroke="oklch(0.274 0.006 286)"
+                    strokeDasharray="2 4"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="day"
+                    stroke="oklch(0.55 0 0)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <YAxis stroke="oklch(0.55 0 0)" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip
-                    cursor={{ stroke: "oklch(0.623 0.214 259.815)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                    cursor={{
+                      stroke: "oklch(0.623 0.214 259.815)",
+                      strokeWidth: 1,
+                      strokeDasharray: "3 3",
+                    }}
                     contentStyle={{
                       background: "oklch(0.205 0.004 285.823)",
                       border: "1px solid oklch(0.274 0.006 286)",
@@ -197,6 +293,7 @@ function RepoDetail() {
                       fontSize: 12,
                       boxShadow: "0 10px 25px -5px rgba(0,0,0,0.6)",
                     }}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate ?? ""}
                   />
                   <Area
                     type="monotone"
@@ -207,7 +304,12 @@ function RepoDetail() {
                     isAnimationActive={true}
                     animationDuration={900}
                     animationEasing="ease-out"
-                    activeDot={{ r: 6, fill: "oklch(0.623 0.214 259.815)", stroke: "#09090b", strokeWidth: 2 }}
+                    activeDot={{
+                      r: 6,
+                      fill: "oklch(0.623 0.214 259.815)",
+                      stroke: "#09090b",
+                      strokeWidth: 2,
+                    }}
                   />
                   <Area
                     type="monotone"
@@ -218,13 +320,18 @@ function RepoDetail() {
                     isAnimationActive={true}
                     animationDuration={1100}
                     animationEasing="ease-out"
-                    activeDot={{ r: 5, fill: "oklch(0.723 0.187 142.495)", stroke: "#09090b", strokeWidth: 2 }}
+                    activeDot={{
+                      r: 5,
+                      fill: "oklch(0.723 0.187 142.495)",
+                      stroke: "#09090b",
+                      strokeWidth: 2,
+                    }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                {isLoading ? "Loading..." : "No snapshot data available yet."}
+                {isLoading ? "Loading..." : `No snapshot data in the selected ${range} window yet.`}
               </div>
             )}
           </div>

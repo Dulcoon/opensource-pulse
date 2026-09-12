@@ -24,7 +24,8 @@ export const Route = createFileRoute("/analytics")({
       { title: "Analytics — OpenSource Pulse" },
       {
         name: "description",
-        content: "Historical trend analytics for languages, technologies, repositories, and contributors.",
+        content:
+          "Historical trend analytics for languages, technologies, repositories, and contributors.",
       },
     ],
   }),
@@ -74,11 +75,80 @@ function formatCompactNumber(num: number): string {
   return num.toString();
 }
 
+const lastOf = <T,>(arr: T[]): T | undefined => arr[arr.length - 1];
+
+const latestMonthOf = (rows: { month: string }[]): string | null =>
+  rows.length === 0 ? null : rows.reduce((a, b) => (a.month > b.month ? a : b)).month;
+
+function bucketLabel(month: string, range: (typeof ranges)[number]): string {
+  // month is "YYYY-MM"
+  if (range === "Yearly") return month.slice(0, 4);
+  if (range === "Quarterly") {
+    const q = Math.floor((Number(month.slice(5, 7)) - 1) / 3) + 1;
+    return `${month.slice(0, 4)}-Q${q}`;
+  }
+  return month;
+}
+
+interface PeriodPoint {
+  period: string;
+  stars: number;
+  forks: number;
+  repos: number;
+}
+
+interface ContribPoint {
+  period: string;
+  contributors: number;
+  repos: number;
+}
+
+/** Honest client-side re-bucketing of the monthly payload the API returns.
+ *  No values are invented: Quarterly/Yearly sums come from the same months. */
+function rebucketRepo(
+  series: { month: string; stars: number; forks: number; repos: number }[],
+  range: (typeof ranges)[number],
+): PeriodPoint[] {
+  if (range === "Monthly") {
+    return series.map((r) => ({ period: r.month, stars: r.stars, forks: r.forks, repos: r.repos }));
+  }
+  const map = new Map<string, PeriodPoint>();
+  for (const r of series) {
+    const period = bucketLabel(r.month, range);
+    const cur = map.get(period) ?? { period, stars: 0, forks: 0, repos: 0 };
+    cur.stars += r.stars;
+    cur.forks += r.forks;
+    cur.repos = Math.max(cur.repos, r.repos);
+    map.set(period, cur);
+  }
+  return [...map.values()].sort((a, b) => (a.period < b.period ? -1 : 1));
+}
+
+function rebucketContrib(
+  series: { month: string; contributors: number; repos: number }[],
+  range: (typeof ranges)[number],
+): ContribPoint[] {
+  if (range === "Monthly") {
+    return series.map((c) => ({ period: c.month, contributors: c.contributors, repos: c.repos }));
+  }
+  const map = new Map<string, ContribPoint>();
+  for (const c of series) {
+    const period = bucketLabel(c.month, range);
+    const cur = map.get(period) ?? { period, contributors: 0, repos: 0 };
+    cur.contributors += c.contributors;
+    cur.repos = Math.max(cur.repos, c.repos);
+    map.set(period, cur);
+  }
+  return [...map.values()].sort((a, b) => (a.period < b.period ? -1 : 1));
+}
+
 function Analytics() {
-  const [range, setRange] = useState<typeof ranges[number]>("Monthly");
+  const [range, setRange] = useState<(typeof ranges)[number]>("Monthly");
+  // NOTE: the API always returns monthly buckets; Quarterly/Yearly are
+  // honest client-side re-aggregations of those same months (see rebucket*).
   const { data: analytics, isLoading } = useAnalytics(range.toLowerCase());
 
-  // 1. Language series
+  // 1. Language series (current snapshot, not temporal)
   const langSeries =
     analytics?.language_growth?.slice(0, 8).map((l) => ({
       name: l.language,
@@ -87,30 +157,42 @@ function Analytics() {
       color: LANG_COLORS[l.language] || "#FF7A00",
     })) ?? [];
 
-  // 2. Technology series (Top 8 tech by avg_score)
+  // 2. Technology series: leaders of the LATEST month, not the earliest rows.
+  const latestTechMonth = latestMonthOf(analytics?.technology_growth ?? []);
   const topTechList =
-    analytics?.technology_growth?.slice(0, 8).map((t) => ({
-      name: t.tech_name,
-      score: Math.round(t.avg_score),
-      repos: t.repo_count,
-    })) ?? [];
+    (latestTechMonth
+      ? analytics?.technology_growth?.filter((t) => t.month === latestTechMonth)
+      : []
+    )
+      ?.slice(0, 8)
+      .map((t) => ({
+        name: t.tech_name,
+        score: Math.round(t.avg_score),
+        repos: t.repo_count,
+        month: t.month,
+      })) ?? [];
 
-  // 3. Repository growth series
-  const repoSeries =
+  // 3. Repository growth series (re-bucketed for display)
+  const repoSeriesRaw =
     analytics?.repository_growth?.map((r) => ({
       month: r.month,
       stars: r.total_stars,
       forks: r.total_forks,
       repos: r.repo_count,
     })) ?? [];
+  const repoSeries = rebucketRepo(repoSeriesRaw, range);
 
-  // 4. Contributor series
-  const contribSeries =
+  // 4. Contributor series (re-bucketed for display)
+  const contribSeriesRaw =
     analytics?.contributor_trend?.map((c) => ({
       month: c.month,
       contributors: c.total_contributors,
       repos: c.repo_count,
     })) ?? [];
+  const contribSeries = rebucketContrib(contribSeriesRaw, range);
+
+  const latestRepo = lastOf(repoSeriesRaw);
+  const latestContrib = lastOf(contribSeriesRaw);
 
   if (isLoading) {
     return (
@@ -160,7 +242,9 @@ function Analytics() {
               {langSeries[0]?.name ?? "—"}
             </div>
             <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-              {langSeries[0] ? `${formatCompactNumber(langSeries[0].stars)} total stars` : "No data"}
+              {langSeries[0]
+                ? `${formatCompactNumber(langSeries[0].stars)} total stars`
+                : "No data"}
             </div>
           </div>
 
@@ -173,33 +257,39 @@ function Analytics() {
               {topTechList[0]?.name ?? "—"}
             </div>
             <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-              {topTechList[0] ? `Score: ${topTechList[0].score}/100` : "No data"}
+              {topTechList[0]
+                ? `Score: ${topTechList[0].score}/100 · ${topTechList[0].month}`
+                : "No data"}
             </div>
           </div>
 
           <div className="rounded-sm border border-border bg-card p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider">Total Tracked Stars</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider">
+                Total Tracked Stars
+              </span>
               <TrendingUp className="h-3.5 w-3.5 text-signal" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
-              {repoSeries[0] ? formatCompactNumber(repoSeries[0].stars) : "—"}
+              {latestRepo ? formatCompactNumber(latestRepo.stars) : "—"}
             </div>
             <div className="text-[11px] font-mono text-success mt-0.5">
-              {repoSeries[0] ? `Across ${repoSeries[0].repos} repos` : "Active"}
+              {latestRepo ? `Across ${latestRepo.repos} repos · ${latestRepo.month}` : "No data"}
             </div>
           </div>
 
           <div className="rounded-sm border border-border bg-card p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider">Active Contributors</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider">
+                Active Contributors
+              </span>
               <Users className="h-3.5 w-3.5 text-warning" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
-              {contribSeries[0] ? formatCompactNumber(contribSeries[0].contributors) : "—"}
+              {latestContrib ? formatCompactNumber(latestContrib.contributors) : "—"}
             </div>
             <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-              Community volume
+              {latestContrib ? `Community volume · ${latestContrib.month}` : "No data"}
             </div>
           </div>
         </div>
@@ -207,13 +297,13 @@ function Analytics() {
         {/* 2x2 Analytics Chart Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* 1. Language Growth Chart */}
-          <ChartCard title="Language Distribution" subtitle="Aggregate stars captured per programming language">
+          <ChartCard
+            title="Language Distribution"
+            subtitle="Aggregate stars captured per programming language"
+          >
             {langSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={langSeries}
-                  margin={{ top: 15, right: 10, left: -10, bottom: 10 }}
-                >
+                <BarChart data={langSeries} margin={{ top: 15, right: 10, left: -10, bottom: 10 }}>
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="name"
@@ -232,7 +322,10 @@ function Analytics() {
                   <Tooltip
                     cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
                     contentStyle={tooltipStyle}
-                    formatter={(val: any) => [Number(val).toLocaleString() + " stars", "Total Stars"]}
+                    formatter={(val: any) => [
+                      Number(val).toLocaleString() + " stars",
+                      "Total Stars",
+                    ]}
                   />
                   <Bar
                     dataKey="stars"
@@ -258,7 +351,10 @@ function Analytics() {
           </ChartCard>
 
           {/* 2. Top Technology Ranking & Score */}
-          <ChartCard title="Technology Leadership" subtitle="Highest adoption scores among tracked technologies">
+          <ChartCard
+            title="Technology Leadership"
+            subtitle={`Highest adoption scores${latestTechMonth ? ` · ${latestTechMonth}` : ""}`}
+          >
             {topTechList.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -307,16 +403,16 @@ function Analytics() {
           </ChartCard>
 
           {/* 3. Repository Stars & Forks */}
-          <ChartCard title="Repository Growth Momentum" subtitle="Total stars and fork engagement per period">
+          <ChartCard
+            title="Repository Growth Momentum"
+            subtitle={`Recorded star/fork totals per ${range === "Monthly" ? "month" : range === "Quarterly" ? "quarter" : "year"}`}
+          >
             {repoSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={repoSeries}
-                  margin={{ top: 15, right: 10, left: -10, bottom: 10 }}
-                >
+                <BarChart data={repoSeries} margin={{ top: 15, right: 10, left: -10, bottom: 10 }}>
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" vertical={false} />
                   <XAxis
-                    dataKey="month"
+                    dataKey="period"
                     stroke="#A1A1AA"
                     tick={{ fill: "#E4E4E7", fontSize: 11 }}
                     tickLine={false}
@@ -367,7 +463,10 @@ function Analytics() {
           </ChartCard>
 
           {/* 4. Contributor Trend */}
-          <ChartCard title="Contributor Engagement" subtitle="Active developer contributions across ecosystem">
+          <ChartCard
+            title="Contributor Engagement"
+            subtitle="Active developer contributions across ecosystem"
+          >
             {contribSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
@@ -382,7 +481,7 @@ function Analytics() {
                   </defs>
                   <CartesianGrid stroke="#27272A" strokeDasharray="3 3" vertical={false} />
                   <XAxis
-                    dataKey="month"
+                    dataKey="period"
                     stroke="#A1A1AA"
                     tick={{ fill: "#E4E4E7", fontSize: 11 }}
                     tickLine={false}
@@ -398,7 +497,10 @@ function Analytics() {
                   <Tooltip
                     cursor={{ stroke: "#F59E0B", strokeWidth: 1, strokeDasharray: "3 3" }}
                     contentStyle={tooltipStyle}
-                    formatter={(val: any) => [Number(val).toLocaleString() + " contributors", "Contributors"]}
+                    formatter={(val: any) => [
+                      Number(val).toLocaleString() + " contributors",
+                      "Contributors",
+                    ]}
                   />
                   <Area
                     type="monotone"

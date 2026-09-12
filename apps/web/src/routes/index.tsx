@@ -61,7 +61,7 @@ function toTechItems(scores: TechnologyScore[] | undefined): TechItem[] {
   return scores.map((t) => ({
     id: t.technology_id,
     name: t.technology?.technology_name || `Tech #${t.technology_id}`,
-    weight: Math.min(Math.round((t.score ?? 0) * 10), 100),
+    weight: Math.min(Math.max(Math.round(t.score ?? 0), 0), 100),
     growth: Math.round(t.growth_percentage ?? 0),
     status: mapStatus(t.status),
     repoCount: t.repository_count ?? undefined,
@@ -265,7 +265,7 @@ function Dashboard() {
                       sub={asOfSub}
                     />
                     <KpiCard
-                      label={`Stars Added (${timeframe})`}
+                      label={`Top Movers Gained (${timeframe})`}
                       value={fmt(topMovers.reduce((acc, r) => acc + r.growth, 0) || null)}
                       sub={
                         topMovers.length > 0

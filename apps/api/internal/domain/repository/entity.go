@@ -31,9 +31,12 @@ type RepositorySnapshot struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	RepositoryID uint      `gorm:"not null;index:idx_snapshots_repository" json:"repository_id"`
 	Stars        int       `json:"stars"`
-	Forks        int       `json:"forks"`
-	OpenIssues   int       `json:"open_issues"`
-	Contributors int       `json:"contributors"`
+	// Forks, OpenIssues and Contributors are nullable: a NULL means "not
+	// observed at capture time" and must never be rendered or aggregated as
+	// zero. Historical backfills only observe stars.
+	Forks        *int      `json:"forks"`
+	OpenIssues   *int      `json:"open_issues"`
+	Contributors *int      `json:"contributors"`
 	CapturedAt   time.Time `gorm:"not null;index:idx_snapshots_date" json:"captured_at"`
 }
 

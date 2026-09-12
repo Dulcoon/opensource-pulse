@@ -53,19 +53,31 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 				continue
 			}
 
-			// Ambil jumlah kontributor
-			contributors, _ := s.github.GetContributorsCount(ctx, gh.Owner.Login, gh.Name)
+		// Ambil jumlah kontributor. On transient failure, reuse the last
+		// known count instead of storing a bogus 0 that would poison
+		// downstream health scores and contributor trends.
+		var contributors *int
+		if count, err := s.github.GetContributorsCount(ctx, gh.Owner.Login, gh.Name); err == nil {
+			contributors = &count
+		} else if lastKnown, ok := s.repo.FindLatestKnownContributors(ctx, repo.ID); ok {
+			log.Printf("Contributors fetch failed for %s, reusing last known count %d: %v", gh.FullName, lastKnown, err)
+			contributors = &lastKnown
+		} else {
+			log.Printf("Contributors unknown for %s (no prior observation): %v", gh.FullName, err)
+		}
 
-			// Buat snapshot
-			snapshot := repository.RepositorySnapshot{
-				RepositoryID: repo.ID,
-				Stars:        gh.StargazersCount,
-				Forks:        gh.ForksCount,
-				OpenIssues:   gh.OpenIssuesCount,
-				Contributors: contributors,
-				CapturedAt:   time.Now(),
-			}
-			s.db.Create(&snapshot)
+		// Buat snapshot: all fields are live observations from this sync.
+		forks := gh.ForksCount
+		issues := gh.OpenIssuesCount
+		snapshot := repository.RepositorySnapshot{
+			RepositoryID: repo.ID,
+			Stars:        gh.StargazersCount,
+			Forks:        &forks,
+			OpenIssues:   &issues,
+			Contributors: contributors,
+			CapturedAt:   time.Now(),
+		}
+		s.db.Create(&snapshot)
 
 			// Auto-sample historical snapshots (7, 30, 90 days ago) if repository lacks historical data
 			var historyCount int64
@@ -74,26 +86,29 @@ func (s *SyncService) SyncRepositories(ctx context.Context) error {
 				Where("repository_id = ? AND captured_at <= ?", repo.ID, sixDaysAgo).
 				Count(&historyCount)
 
-			if historyCount == 0 && gh.StargazersCount > 0 {
-				go func(owner, repoName string, stars int, createdAt time.Time, repoID uint, forks, issues int) {
-					ctxHist, cancelHist := context.WithTimeout(context.Background(), 45*time.Second)
-					defer cancelHist()
-					points, err := s.github.GetHistoricalStarsMulti(ctxHist, owner, repoName, stars, createdAt, []int{7, 30, 90})
-					if err == nil {
-						for _, p := range points {
-							s.db.Create(&repository.RepositorySnapshot{
-								RepositoryID: repoID,
-								Stars:        p.Stars,
-								Forks:        forks,
-								OpenIssues:   issues,
-								Contributors: 0,
-								CapturedAt:   p.Date,
-							})
-						}
-						log.Printf("[Auto] Backfilled historical stars (7d/30d/90d) for %s/%s", owner, repoName)
-					}
-				}(gh.Owner.Login, gh.Name, gh.StargazersCount, gh.CreatedAt, repo.ID, gh.ForksCount, gh.OpenIssuesCount)
-			}
+		if historyCount == 0 && gh.StargazersCount > 0 {
+			go func(owner, repoName string, stars int, createdAt time.Time, repoID uint) {
+				ctxHist, cancelHist := context.WithTimeout(context.Background(), 45*time.Second)
+				defer cancelHist()
+				points, err := s.github.GetHistoricalStarsMulti(ctxHist, owner, repoName, stars, createdAt, []int{7, 30, 90})
+				if err != nil {
+					// Fail closed: partial or failed probes must not become
+					// history. The window simply stays empty until observed.
+					log.Printf("[Auto] Skipping historical backfill for %s/%s: %v", owner, repoName, err)
+					return
+				}
+				for _, p := range points {
+					// Historical probes only observe stars. Forks, issues and
+					// contributors for past dates are unobserved → NULL.
+					s.db.Create(&repository.RepositorySnapshot{
+						RepositoryID: repoID,
+						Stars:        p.Stars,
+						CapturedAt:   p.Date,
+					})
+				}
+				log.Printf("[Auto] Backfilled historical stars (7d/30d/90d) for %s/%s", owner, repoName)
+			}(gh.Owner.Login, gh.Name, gh.StargazersCount, gh.CreatedAt, repo.ID)
+		}
 
 			// Simpan topics sebagai teknologi
 			for _, topic := range gh.Topics {
@@ -173,17 +188,14 @@ func (s *SyncService) BackfillHistoricalSnapshots(ctx context.Context) (int, err
 				Where("repository_id = ? AND captured_at >= ? AND captured_at < ?", r.ID, dayStart, dayEnd).
 				Count(&exists)
 
-			if exists == 0 {
-				snap := repository.RepositorySnapshot{
-					RepositoryID: r.ID,
-					Stars:        p.Stars,
-					Forks:        r.Forks,
-					OpenIssues:   r.OpenIssues,
-					Contributors: 0,
-					CapturedAt:   p.Date,
-				}
-				s.db.Create(&snap)
+		if exists == 0 {
+			snap := repository.RepositorySnapshot{
+				RepositoryID: r.ID,
+				Stars:        p.Stars,
+				CapturedAt:   p.Date,
 			}
+			s.db.Create(&snap)
+		}
 		}
 
 		processedCount++

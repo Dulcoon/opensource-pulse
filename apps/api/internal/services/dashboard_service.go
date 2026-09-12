@@ -167,7 +167,15 @@ func topWindowGrowers(scores []technology.TechnologyScore, limit int) []technolo
 }
 
 func (s *DashboardService) findFastestGrowingRepos(ctx context.Context, limit int, cutoff time.Time) []FastestGrowingRepo {
-	topRepos, err := s.repoRepo.FindTopWithGrowth(ctx, 15)
+	return ComputeWindowMovers(s.repoRepo, ctx, limit, cutoff)
+}
+
+// ComputeWindowMovers ranks repositories by star delta inside [cutoff, now].
+// Shared by the dashboard and the AI insight prompts so both narrate the
+// same numbers. Repos with fewer than 2 in-window snapshots get growth 0
+// (unmeasured, not flat) and naturally sink in the ranking.
+func ComputeWindowMovers(repoRepo *repositories.RepositoryRepo, ctx context.Context, limit int, cutoff time.Time) []FastestGrowingRepo {
+	topRepos, err := repoRepo.FindTopWithGrowth(ctx, 15)
 	if err != nil || len(topRepos) == 0 {
 		return nil
 	}
@@ -179,7 +187,7 @@ func (s *DashboardService) findFastestGrowingRepos(ctx context.Context, limit in
 	var candidates []growthInfo
 
 	for _, r := range topRepos {
-		snapshots, err := s.repoRepo.FindSnapshotsByRepoID(ctx, r.ID)
+		snapshots, err := repoRepo.FindSnapshotsByRepoID(ctx, r.ID)
 		if err != nil || len(snapshots) == 0 {
 			candidates = append(candidates, growthInfo{repo: r, growth: 0})
 			continue

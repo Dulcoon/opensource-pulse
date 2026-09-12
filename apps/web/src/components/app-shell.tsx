@@ -88,14 +88,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         : "IDLE";
   const watchlist =
     radarScores && radarScores.length > 0
-      ? radarScores.slice(0, 4).map((s) => ({
-          s: (
-            s.technology?.technology_name ||
-            s.technology?.slug ||
-            `TECH-${s.technology_id}`
-          ).toUpperCase(),
-          v: `${(s.growth_percentage ?? 0) >= 0 ? "+" : ""}${(s.growth_percentage ?? 0).toFixed(1)}%`,
-        }))
+      ? radarScores.slice(0, 4).map((s) => {
+          const growth = s.growth_percentage ?? 0;
+          return {
+            s: (
+              s.technology?.technology_name ||
+              s.technology?.slug ||
+              `TECH-${s.technology_id}`
+            ).toUpperCase(),
+            v: `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`,
+            up: growth >= 0,
+          };
+        })
       : [];
 
   return (
@@ -170,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     className="flex items-center justify-between px-2.5 py-1 rounded-sm hover:bg-sidebar-accent/40 cursor-pointer transition-colors"
                   >
                     <span className="text-muted-foreground">{w.s}</span>
-                    <span className="text-success">{w.v}</span>
+                    <span className={w.up ? "text-success" : "text-destructive"}>{w.v}</span>
                   </Link>
                 ))
               ) : (

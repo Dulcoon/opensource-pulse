@@ -90,6 +90,23 @@ func (r *RepositoryRepo) CountStats(ctx context.Context) (totalRepos int64, tota
 	return
 }
 
+// FindLatestKnownContributors returns the most recently observed contributor
+// count, skipping snapshots where it was never observed (NULL). The second
+// return value is false when no snapshot ever recorded a count.
+func (r *RepositoryRepo) FindLatestKnownContributors(ctx context.Context, repoID uint) (int, bool) {
+	var vals []int
+	err := r.db.WithContext(ctx).
+		Model(&repository.RepositorySnapshot{}).
+		Where("repository_id = ? AND contributors IS NOT NULL", repoID).
+		Order("captured_at desc").
+		Limit(1).
+		Pluck("contributors", &vals).Error
+	if err != nil || len(vals) == 0 {
+		return 0, false
+	}
+	return vals[0], true
+}
+
 func (r *RepositoryRepo) FindTopWithGrowth(ctx context.Context, limit int) ([]repository.Repository, error) {
 	var repos []repository.Repository
 	err := r.db.WithContext(ctx).Order("stars desc").Limit(limit).Find(&repos).Error

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	geminiClient "opensource-pulse/api/internal/integrations/gemini"
 	"opensource-pulse/api/internal/domain/report"
+	"opensource-pulse/api/internal/domain/technology"
 	"opensource-pulse/api/internal/repositories"
 )
 
@@ -22,21 +24,85 @@ func NewInsightService(gemini *geminiClient.Client, repo *repositories.Repositor
 	return &InsightService{gemini: gemini, repo: repo, tech: tech, rpt: rpt}
 }
 
+// moverLines renders window movers with real measured deltas. A repo with
+// growth 0 either did not move or has too few snapshots to measure — the
+// prompt marks it as such so the model cannot present it as a mover.
+func moverLines(movers []FastestGrowingRepo) string {
+	if len(movers) == 0 {
+		return "(no measurable movers in this window — too few snapshots)"
+	}
+	out := ""
+	for i, r := range movers {
+		note := fmt.Sprintf("+%d stars", r.Growth)
+		if r.Growth == 0 {
+			note = "no measurable movement (too few snapshots)"
+		}
+		out += fmt.Sprintf("%d. %s — %s in window, %d total stars, language: %s\n",
+			i+1, r.FullName, note, r.Stars, derefStr(r.PrimaryLanguage))
+	}
+	return out
+}
+
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func fmtScore(v *float64) string {
+	if v == nil {
+		return "n/a"
+	}
+	return fmt.Sprintf("%.1f", *v)
+}
+
+func fmtGrowth(v *float64) string {
+	if v == nil {
+		return "n/a"
+	}
+	return fmt.Sprintf("%+.1f%%", *v)
+}
+
+func fmtCount(v *int) string {
+	if v == nil {
+		return "n/a"
+	}
+	return fmt.Sprintf("%d", *v)
+}
+
+func techLines(scores []technology.TechnologyScore) string {
+	if len(scores) == 0 {
+		return "(no radar scores calculated yet)"
+	}
+	out := ""
+	for i, t := range scores {
+		name := fmt.Sprintf("Tech #%d", t.TechnologyID)
+		if t.Technology != nil && t.Technology.TechnologyName != "" {
+			name = t.Technology.TechnologyName
+		}
+		status := "unknown"
+		if t.Status != nil {
+			status = *t.Status
+		}
+		out += fmt.Sprintf("%d. %s — window growth %s, score %s, status %s, %s repos\n",
+			i+1, name, fmtGrowth(t.GrowthPercentage), fmtScore(t.Score), status, fmtCount(t.RepositoryCount))
+	}
+	return out
+}
+
 func (s *InsightService) GenerateInsight(ctx context.Context) (*report.DailyInsight, error) {
 	log.Println("Generating daily insight with Gemini...")
 
-	// Ambil top 5 repos
-	topRepos, err := s.repo.FindAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fetch repos: %w", err)
-	}
-	limit := 5
-	if len(topRepos) < limit {
-		limit = len(topRepos)
-	}
-	top5 := topRepos[:limit]
+	window := "7d"
+	cutoff := time.Now().Add(-7 * 24 * time.Hour)
+	asOf := time.Now().UTC().Format("2006-01-02")
 
-	// Ambil top 5 tech radar
+	// Movers with measured window deltas (same numbers the dashboard shows).
+	movers := ComputeWindowMovers(s.repo, ctx, 5, cutoff)
+
+	// Latest radar batch for tech context (growth already window-aware is
+	// dashboard-side; here we show stored growth and say exactly that).
 	scores, _ := s.tech.FindLatestScores(ctx)
 	techLimit := 5
 	if len(scores) < techLimit {
@@ -44,39 +110,27 @@ func (s *InsightService) GenerateInsight(ctx context.Context) (*report.DailyInsi
 	}
 	topTechs := scores[:techLimit]
 
-	// Bangun prompt
-	repoSummary := ""
-	for i, r := range top5 {
-		lang := ""
-		if r.PrimaryLanguage != nil {
-			lang = *r.PrimaryLanguage
-		}
-		repoSummary += fmt.Sprintf("%d. %s — %s, stars: %d, language: %s\n", i+1, r.FullName, safeStr(r.Description), r.Stars, lang)
+	totalRepos, _, _, _ := s.repo.CountStats(ctx)
+	if totalRepos == 0 {
+		return nil, fmt.Errorf("no repository data: refusing to generate insight without observations")
 	}
 
-	techSummary := ""
-	for i, t := range topTechs {
-		techName := fmt.Sprintf("Tech #%d", t.TechnologyID)
-		if t.Technology != nil && t.Technology.TechnologyName != "" {
-			techName = t.Technology.TechnologyName
-		}
-		techSummary += fmt.Sprintf("%d. %s, score=%.1f, repos=%d\n", i+1, techName, *t.Score, *t.RepositoryCount)
-	}
+	prompt := fmt.Sprintf(`Open source telemetry for the trailing %s window (data as of %s):
 
-	prompt := fmt.Sprintf(`Today's open source landscape data:
-
-Top Repositories:
+Top Movers (measured star deltas in window):
 %s
-
-Top Technologies (Tech Radar):
+Top Technologies (latest radar batch; growth shown is the batch's 7-day figure):
 %s
-
 Total repositories tracked: %d
 
-Based on this data, write ONE concise paragraph (2-3 sentences) of market intelligence about current open source trends. Highlight dominant technologies and movements. Be specific and data-driven. Do NOT use LaTeX or formula formatting. Write in English.`,
-		repoSummary, techSummary, len(topRepos))
+Write ONE concise paragraph (2-3 sentences) of market intelligence. Rules:
+- Mention ONLY numbers printed above; never invent percentages, dates, or repo names.
+- Repos marked "no measurable movement" must NOT be described as movers.
+- If a section says no data, say what is missing instead of guessing.
+- Do NOT use LaTeX or formula formatting. Write in English.`,
+		window, asOf, moverLines(movers), techLines(topTechs), totalRepos)
 
-	system := "You are an open source market intelligence analyst. Give concise, data-driven insight in English. Just the paragraph, no preamble."
+	system := "You are an open source market intelligence analyst. Give concise, data-driven insight in English. Just the paragraph, no preamble. Never hallucinate figures."
 
 	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
@@ -95,12 +149,11 @@ Based on this data, write ONE concise paragraph (2-3 sentences) of market intell
 func (s *InsightService) GenerateWeeklyReport(ctx context.Context) (*report.WeeklyReport, error) {
 	log.Println("Generating weekly report with Gemini...")
 
-	topRepos, _ := s.repo.FindAll(ctx)
-	reposLimit := 10
-	if len(topRepos) < reposLimit {
-		reposLimit = len(topRepos)
-	}
-	top10Repos := topRepos[:reposLimit]
+	window := "7d"
+	cutoff := time.Now().Add(-7 * 24 * time.Hour)
+	asOf := time.Now().UTC().Format("2006-01-02")
+
+	movers := ComputeWindowMovers(s.repo, ctx, 10, cutoff)
 
 	scores, _ := s.tech.FindLatestScores(ctx)
 	techLimit := 10
@@ -109,32 +162,17 @@ func (s *InsightService) GenerateWeeklyReport(ctx context.Context) (*report.Week
 	}
 	top10Techs := scores[:techLimit]
 
-	repoSummary := ""
-	for i, r := range top10Repos {
-		lang := ""
-		if r.PrimaryLanguage != nil {
-			lang = *r.PrimaryLanguage
-		}
-		repoSummary += fmt.Sprintf("%d. %s — %s, stars: %d, language: %s\n", i+1, r.FullName, safeStr(r.Description), r.Stars, lang)
+	totalRepos, _, _, _ := s.repo.CountStats(ctx)
+	if totalRepos == 0 {
+		return nil, fmt.Errorf("no repository data: refusing to generate report without observations")
 	}
 
-	techSummary := ""
-	for i, t := range top10Techs {
-		techName := fmt.Sprintf("Tech #%d", t.TechnologyID)
-		if t.Technology != nil && t.Technology.TechnologyName != "" {
-			techName = t.Technology.TechnologyName
-		}
-		techSummary += fmt.Sprintf("%d. %s, score=%.1f, repos=%d\n", i+1, techName, *t.Score, *t.RepositoryCount)
-	}
+	prompt := fmt.Sprintf(`Open source telemetry for the trailing %s window (data as of %s):
 
-	prompt := fmt.Sprintf(`This week's open source landscape data:
-
-Top Repositories (by stars):
+Top Movers (measured star deltas in window):
 %s
-
-Top Technologies (Tech Radar):
+Top Technologies (latest radar batch; growth shown is the batch's 7-day figure):
 %s
-
 Total repositories tracked: %d
 
 Write a weekly executive intelligence report (3-4 paragraphs) analyzing:
@@ -143,10 +181,10 @@ Write a weekly executive intelligence report (3-4 paragraphs) analyzing:
 3. Technology sector movements (rising vs declining)
 4. Strategic outlook for the coming week
 
-Be specific, data-driven, and write in professional English. Do NOT use LaTeX or formula formatting.`,
-		repoSummary, techSummary, len(topRepos))
+Rules: mention ONLY numbers printed above; never invent percentages, dates, or repo names. Repos marked "no measurable movement" must NOT be described as breakouts. If a section has no data, say so instead of guessing. Be specific, data-driven, and write in professional English. Do NOT use LaTeX or formula formatting.`,
+		window, asOf, moverLines(movers), techLines(top10Techs), totalRepos)
 
-	system := "You are an open source market intelligence analyst writing an executive report. Write in professional English. Be specific and data-driven."
+	system := "You are an open source market intelligence analyst writing an executive report. Write in professional English. Be specific and data-driven. Never hallucinate figures."
 
 	text, err := s.gemini.GenerateText(ctx, system, prompt)
 	if err != nil {
@@ -154,7 +192,7 @@ Be specific, data-driven, and write in professional English. Do NOT use LaTeX or
 	}
 
 	topTechJSON, _ := json.Marshal(top10Techs)
-	topRepoJSON, _ := json.Marshal(top10Repos)
+	topRepoJSON, _ := json.Marshal(movers)
 
 	report, err := s.rpt.CreateReport(ctx, "Weekly Open Source Report", &text, topTechJSON, topRepoJSON)
 	if err != nil {

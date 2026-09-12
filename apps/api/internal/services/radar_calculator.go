@@ -107,13 +107,12 @@ func (c *RadarCalculator) Calculate(ctx context.Context) error {
 			continue
 		}
 
+		// Declines are real data: keep negative deltas so collapsing
+		// technologies can reach Declining instead of being masked as flat.
 		delta := row.DeltaStars
-		if delta < 0 {
-			delta = 0
-		}
 
 		growth := 0.0
-		if row.PrevStars > 0 && delta > 0 {
+		if row.PrevStars > 0 && delta != 0 {
 			growth = (float64(delta) / float64(row.PrevStars)) * 100.0
 		}
 
@@ -158,10 +157,14 @@ func (c *RadarCalculator) Calculate(ctx context.Context) error {
 		maxGrowthPct = 1.0
 	}
 
-	now := time.Now()
+	// Batch key truncated to the minute so overlapping runs (manual trigger
+	// + scheduled job) land in the same batch instead of splitting the
+	// "latest batch" selector into partial halves.
+	now := time.Now().Truncate(time.Minute)
 
-	// 4. Delete old scores and write new weighted scores
-	c.db.Exec("DELETE FROM technology_scores")
+	// 4. Append a new score batch. History is append-only (ERD retention:
+	// permanent) so trends stay computable; readers always use the newest
+	// calculated_at batch.
 
 	for _, v := range velocities {
 		var finalScore float64
@@ -206,12 +209,15 @@ func (c *RadarCalculator) Calculate(ctx context.Context) error {
 }
 
 func (c *RadarCalculator) determineStatus(score, growth float64) string {
+	// growth is a percentage (e.g. 42.0 = +42%), so thresholds are in the
+	// same unit. Previously 0.20/0.10 labeled nearly any positive growth
+	// as Exploding.
 	switch {
-	case score >= 70 || growth >= 0.20:
+	case score >= 70 || growth >= 20:
 		return "Exploding"
-	case score >= 45 || growth >= 0.10:
+	case score >= 45 || growth >= 10:
 		return "Rising"
-	case score >= 20:
+	case score >= 20 || growth >= 0:
 		return "Stable"
 	default:
 		return "Declining"

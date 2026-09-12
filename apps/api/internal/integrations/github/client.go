@@ -224,7 +224,10 @@ func (c *Client) GetHistoricalStarsAtDate(ctx context.Context, owner, repo strin
 	return estimatedStars, nil
 }
 
-// GetHistoricalStarsMulti samples star counts across multiple past intervals (e.g. [7, 30, 90] days)
+// GetHistoricalStarsMulti samples star counts across multiple past intervals (e.g. [7, 30, 90] days).
+// It fails closed: if any probe fails, no points are returned, so callers
+// never persist invented history. Synthesizing past numbers from a decay
+// formula is forbidden — unobserved history must stay absent, not plausible.
 func (c *Client) GetHistoricalStarsMulti(ctx context.Context, owner, repo string, totalStars int, createdAt time.Time, daysList []int) ([]HistoricalStarPoint, error) {
 	now := time.Now()
 	var results []HistoricalStarPoint
@@ -232,12 +235,7 @@ func (c *Client) GetHistoricalStarsMulti(ctx context.Context, owner, repo string
 		targetDate := now.AddDate(0, 0, -days)
 		stars, err := c.GetHistoricalStarsAtDate(ctx, owner, repo, totalStars, createdAt, targetDate)
 		if err != nil {
-			// Fallback estimate if probe fails: conservative daily decay of ~0.25%
-			decayRatio := 1.0 - (float64(days) * 0.0025)
-			if decayRatio < 0.1 {
-				decayRatio = 0.1
-			}
-			stars = int(float64(totalStars) * decayRatio)
+			return nil, fmt.Errorf("historical stars probe failed for %s/%s (%dd ago): %w", owner, repo, days, err)
 		}
 		results = append(results, HistoricalStarPoint{
 			DaysAgo: days,
