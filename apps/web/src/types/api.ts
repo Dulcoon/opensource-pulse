@@ -106,6 +106,17 @@ export interface WeeklyStats {
   active_technologies: number;
 }
 
+export interface DashboardMeta {
+  range: string;
+  window_hours: number;
+  data_as_of?: string | null;
+  last_sync_at?: string | null;
+  scores_calculated_at?: string | null;
+  next_sync_at?: string | null;
+}
+
+export type DashboardRange = "24h" | "7d" | "30d";
+
 export interface DashboardResponse {
   hot_technologies: TechnologyScore[];
   fastest_growing_repo: FastestGrowingRepo | null;
@@ -113,6 +124,7 @@ export interface DashboardResponse {
   emerging_technologies: TechnologyScore[];
   weekly_statistics: WeeklyStats | null;
   weekly_insight: DailyInsight | null;
+  meta: DashboardMeta;
 }
 
 export interface LanguageStat {

@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"time"
 
 	"opensource-pulse/api/internal/domain/repository"
 	"gorm.io/gorm"
@@ -93,6 +94,21 @@ func (r *RepositoryRepo) FindTopWithGrowth(ctx context.Context, limit int) ([]re
 	var repos []repository.Repository
 	err := r.db.WithContext(ctx).Order("stars desc").Limit(limit).Find(&repos).Error
 	return repos, err
+}
+
+// FindMaxSnapshotTime returns the newest snapshot capture time across all
+// repositories, i.e. when the freshest data point was ingested.
+// Returns (nil, nil) when no snapshots exist yet.
+func (r *RepositoryRepo) FindMaxSnapshotTime(ctx context.Context) (*time.Time, error) {
+	var max *time.Time
+	err := r.db.WithContext(ctx).
+		Model(&repository.RepositorySnapshot{}).
+		Select("MAX(captured_at)").
+		Scan(&max).Error
+	if err != nil {
+		return nil, err
+	}
+	return max, nil
 }
 
 type LanguageStat struct {

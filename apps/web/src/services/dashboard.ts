@@ -1,6 +1,6 @@
 import { get } from "./http";
-import type { DashboardResponse } from "@/types/api";
+import type { DashboardRange, DashboardResponse } from "@/types/api";
 
-export function getDashboard(): Promise<DashboardResponse> {
-  return get<DashboardResponse>("/dashboard");
+export function getDashboard(range: DashboardRange = "7d"): Promise<DashboardResponse> {
+  return get<DashboardResponse>(`/dashboard?range=${range}`);
 }

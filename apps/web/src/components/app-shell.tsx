@@ -10,11 +10,11 @@ import {
   Command,
 } from "lucide-react";
 import { useState, useMemo, type ReactNode } from "react";
-import { ticker } from "@/lib/mock-data";
 import { CommandPalette } from "@/components/command-palette";
 import { useRadar } from "@/hooks/use-radar";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { ClientClock } from "@/lib/client-only";
+import { timeAgo } from "@/lib/time-ago";
 
 const navItems = [
   { to: "/", label: "Terminal", icon: LayoutDashboard, code: "01", exact: true },
@@ -28,9 +28,13 @@ function TickerTape() {
   const { data: radarScores } = useRadar();
 
   const items = useMemo(() => {
-    if (!radarScores || radarScores.length === 0) return ticker;
+    if (!radarScores || radarScores.length === 0) return [];
     return radarScores.slice(0, 16).map((s) => {
-      const name = (s.technology?.technology_name || s.technology?.slug || `TECH-${s.technology_id}`).toUpperCase();
+      const name = (
+        s.technology?.technology_name ||
+        s.technology?.slug ||
+        `TECH-${s.technology_id}`
+      ).toUpperCase();
       const growth = s.growth_percentage ?? 0;
       return {
         sym: name,
@@ -40,12 +44,19 @@ function TickerTape() {
     });
   }, [radarScores]);
 
-  const displayItems = [...items, ...items];
+  const hasData = items.length > 0;
+  const displayItems = hasData
+    ? [...items, ...items]
+    : [{ sym: "AWAITING FIRST SYNC", val: "—", up: true }];
   return (
     <div className="h-7 border-b border-border bg-card overflow-hidden relative">
       <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-3 bg-card border-r border-border">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-accent">PULSE/LIVE</span>
-        <span className="ml-2 h-1.5 w-1.5 rounded-full bg-success pulse-dot" />
+        <span className="text-[10px] font-mono uppercase tracking-wider text-accent">
+          {hasData ? "PULSE/FEED" : "PULSE/IDLE"}
+        </span>
+        <span
+          className={`ml-2 h-1.5 w-1.5 rounded-full ${hasData ? "bg-success pulse-dot" : "bg-muted-foreground"}`}
+        />
       </div>
       <div className="flex items-center h-full animate-ticker whitespace-nowrap pl-32">
         {displayItems.map((t, i) => (
@@ -64,9 +75,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { data: radarScores } = useRadar();
-  const { data: dash } = useDashboard();
+  const { data: dash, isError: dashError, isLoading: dashLoading } = useDashboard();
   const totalRepos = dash?.weekly_statistics?.total_repos;
   const totalTech = dash?.weekly_statistics?.active_technologies;
+  const dataAge = timeAgo(dash?.meta?.data_as_of ?? null);
+  const feedState = dashError
+    ? "OFFLINE"
+    : dashLoading
+      ? "SYNCING"
+      : totalRepos
+        ? "SYNCED"
+        : "IDLE";
+  const watchlist =
+    radarScores && radarScores.length > 0
+      ? radarScores.slice(0, 4).map((s) => ({
+          s: (
+            s.technology?.technology_name ||
+            s.technology?.slug ||
+            `TECH-${s.technology_id}`
+          ).toUpperCase(),
+          v: `${(s.growth_percentage ?? 0) >= 0 ? "+" : ""}${(s.growth_percentage ?? 0).toFixed(1)}%`,
+        }))
+      : [];
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground flex-col">
@@ -97,7 +127,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="flex-1 px-2 py-3">
-            <div className="px-2 pb-2 text-[9px] font-mono font-medium uppercase tracking-[0.18em] text-muted-foreground">Modules</div>
+            <div className="px-2 pb-2 text-[9px] font-mono font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              Modules
+            </div>
             <div className="space-y-px">
               {navItems.map((item) => {
                 const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
@@ -112,8 +144,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                         : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
                     }`}
                   >
-                    {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-r" />}
-                    <span className="text-[9px] font-mono text-muted-foreground/70 w-4">{item.code}</span>
+                    {active && (
+                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-accent rounded-r" />
+                    )}
+                    <span className="text-[9px] font-mono text-muted-foreground/70 w-4">
+                      {item.code}
+                    </span>
                     <Icon className="h-3.5 w-3.5" />
                     <span>{item.label}</span>
                   </Link>
@@ -123,46 +159,43 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <div className="px-2 pt-5 pb-2 text-[9px] font-mono font-medium uppercase tracking-[0.18em] text-muted-foreground flex items-center justify-between">
               <span>Watchlist</span>
-              <span className="text-[8px] text-accent">LIVE</span>
+              <span className="text-[8px] text-muted-foreground">{feedState}</span>
             </div>
             <div className="space-y-px font-mono text-[11px]">
-              {(radarScores && radarScores.length > 0
-                ? radarScores.slice(0, 4).map((s) => ({
-                    s: (s.technology?.technology_name || s.technology?.slug || `TECH-${s.technology_id}`).toUpperCase(),
-                    v: `${(s.growth_percentage ?? 0) >= 0 ? "+" : ""}${(s.growth_percentage ?? 0).toFixed(1)}%`,
-                  }))
-                : [
-                    { s: "AI", v: "+0.2%" },
-                    { s: "AGENT", v: "+0.2%" },
-                    { s: "PYTHON", v: "+0.2%" },
-                    { s: "REMOTION", v: "+1.5%" },
-                  ]
-              ).map((w) => (
-                <Link
-                  key={w.s}
-                  to="/radar"
-                  className="flex items-center justify-between px-2.5 py-1 rounded-sm hover:bg-sidebar-accent/40 cursor-pointer transition-colors"
-                >
-                  <span className="text-muted-foreground">{w.s}</span>
-                  <span className="text-success">{w.v}</span>
-                </Link>
-              ))}
+              {watchlist.length > 0 ? (
+                watchlist.map((w) => (
+                  <Link
+                    key={w.s}
+                    to="/radar"
+                    className="flex items-center justify-between px-2.5 py-1 rounded-sm hover:bg-sidebar-accent/40 cursor-pointer transition-colors"
+                  >
+                    <span className="text-muted-foreground">{w.s}</span>
+                    <span className="text-success">{w.v}</span>
+                  </Link>
+                ))
+              ) : (
+                <div className="px-2.5 py-1 text-muted-foreground/70">No signals yet</div>
+              )}
             </div>
           </nav>
 
           <div className="border-t border-border p-3">
             <div className="rounded-sm border border-border bg-card p-2.5">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Feed online
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${dashError ? "bg-destructive" : "bg-emerald-500"}`}
+                />
+                {dashError ? "Feed offline" : "Feed online"}
               </div>
               <div className="mt-1 text-[11px] font-mono text-foreground font-medium">
-                {totalRepos ? `${totalRepos.toLocaleString()} repos` : "Telemetry online"}
+                {totalRepos ? `${totalRepos.toLocaleString()} repos` : "Awaiting first sync"}
                 {totalTech ? ` · ${totalTech} tech` : ""}
               </div>
               <div className="mt-0.5 text-[10px] font-mono text-muted-foreground flex items-center justify-between">
                 <span>INGESTION ENGINE</span>
-                <span className="text-emerald-500 text-[9px] font-semibold">200 OK</span>
+                <span className="text-emerald-500 text-[9px] font-semibold">
+                  {dataAge ? `SYNCED ${dataAge.toUpperCase()}` : "NO DATA"}
+                </span>
               </div>
             </div>
           </div>
@@ -189,7 +222,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="ml-auto flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              <span>Status: <span className="text-emerald-400 font-semibold">ONLINE</span></span>
+              <span>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${dashError ? "text-destructive" : "text-emerald-400"}`}
+                >
+                  {dashError ? "OFFLINE" : "ONLINE"}
+                </span>
+              </span>
               <span className="text-border">·</span>
               <ClientClock />
             </div>
@@ -197,8 +237,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Bell className="h-3.5 w-3.5" />
             </button>
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm border border-border bg-card/60 text-[10px] font-mono text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-foreground font-semibold">FEED LIVE</span>
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${dashError ? "bg-destructive" : "bg-emerald-500"}`}
+              />
+              <span className="text-foreground font-semibold">FEED {feedState}</span>
             </div>
           </header>
           <main className="flex-1">{children}</main>

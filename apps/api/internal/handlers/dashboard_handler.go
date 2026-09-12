@@ -16,7 +16,7 @@ func NewDashboardHandler(svc *services.DashboardService) *DashboardHandler {
 }
 
 func (h *DashboardHandler) GetDashboard(c *gin.Context) {
-	resp, err := h.svc.GetDashboard(c.Request.Context())
+	resp, err := h.svc.GetDashboard(c.Request.Context(), c.DefaultQuery("range", "7d"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

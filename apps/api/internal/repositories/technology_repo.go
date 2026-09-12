@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"opensource-pulse/api/internal/domain/technology"
 	"gorm.io/gorm"
@@ -91,6 +93,70 @@ func (r *TechnologyRepo) CountTechnologies(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&technology.Technology{}).Count(&count).Error
 	return count, err
+}
+
+// FindMaxScoresTime returns the newest radar calculation time.
+// Returns (nil, nil) when no scores exist yet.
+func (r *TechnologyRepo) FindMaxScoresTime(ctx context.Context) (*time.Time, error) {
+	var max *time.Time
+	err := r.db.WithContext(ctx).
+		Model(&technology.TechnologyScore{}).
+		Select("MAX(calculated_at)").
+		Scan(&max).Error
+	if err != nil {
+		return nil, err
+	}
+	return max, nil
+}
+
+// TechVelocity is the star velocity of one technology over a caller-chosen
+// window, computed directly from repository snapshots (same semantics as the
+// daily radar calculation, but parameterized by window).
+type TechVelocity struct {
+	TechnologyID uint    `json:"technology_id"`
+	DeltaStars   int64   `json:"delta_stars"`
+	GrowthPct    float64 `json:"growth_pct"`
+	RepoCount    int     `json:"repo_count"`
+}
+
+// FindTechVelocity computes per-technology star deltas between the latest
+// snapshot of each repository and its earliest snapshot inside the window.
+// windowHours must be a positive int chosen by the caller (dashboard only
+// passes 24, 168 or 720); it is interpolated as an integer so no user input
+// ever reaches the SQL string.
+func (r *TechnologyRepo) FindTechVelocity(ctx context.Context, windowHours int) ([]TechVelocity, error) {
+	if windowHours <= 0 {
+		windowHours = 168
+	}
+	var rows []TechVelocity
+	query := fmt.Sprintf(`
+		SELECT
+			t.id AS technology_id,
+			COALESCE(SUM(latest_sub.stars) - SUM(earliest_sub.stars), 0) AS delta_stars,
+			CASE
+				WHEN COALESCE(SUM(earliest_sub.stars), 0) > 0
+				THEN ROUND((COALESCE(SUM(latest_sub.stars), 0) - COALESCE(SUM(earliest_sub.stars), 0)) * 100.0 / COALESCE(SUM(earliest_sub.stars), 0), 2)
+				ELSE 0
+			END AS growth_pct,
+			COUNT(DISTINCT r.id) AS repo_count
+		FROM technologies t
+		JOIN repository_technologies rt ON t.id = rt.technology_id
+		JOIN repositories r ON rt.repository_id = r.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (repository_id) repository_id, stars
+			FROM repository_snapshots
+			ORDER BY repository_id, captured_at DESC
+		) latest_sub ON r.id = latest_sub.repository_id
+		LEFT JOIN (
+			SELECT DISTINCT ON (repository_id) repository_id, stars
+			FROM repository_snapshots
+			WHERE captured_at >= NOW() - INTERVAL '%d hours'
+			ORDER BY repository_id, captured_at ASC
+		) earliest_sub ON r.id = earliest_sub.repository_id
+		GROUP BY t.id
+	`, windowHours)
+	err := r.db.WithContext(ctx).Raw(query).Scan(&rows).Error
+	return rows, err
 }
 
 type TechTrendStat struct {
