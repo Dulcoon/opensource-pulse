@@ -112,8 +112,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="px-4 py-3.5 border-b border-border bg-sidebar/80 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <img
-                src="/logo.png"
+                src="/logo-mark.webp"
                 alt="OpenSource Pulse Logo"
+                width={510}
+                height={510}
+                fetchPriority="high"
                 className="h-8.5 w-auto object-contain"
               />
               <span className="text-[9px] font-mono uppercase tracking-[0.2em] text-accent font-semibold px-1.5 py-0.5 rounded bg-accent/10 border border-accent/20">

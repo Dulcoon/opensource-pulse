@@ -48,6 +48,9 @@ services:
       - "9001:9001"
     env_file:
       - development/.env.api
+    environment:
+      # Production mode: quiet Gin + silence per-query SQL logging.
+      - GIN_MODE=release
     volumes:
       - ../apps/api:/app
       - api_tmp:/app/tmp
@@ -59,23 +62,35 @@ services:
     networks:
       - opensource_pulse
 
-  # Frontend (Live-Reload via Vite HMR + Volume Mount)
+  # Frontend (PRODUCTION: prebuilt TanStack Start bundle served by
+  # `vite preview` behind the nginx edge below. VITE_API_URL is baked at
+  # build time — rebuild to change the API host. Not exposed publicly;
+  # traffic enters through `web-edge`.)
   web:
     build:
-      context: ../apps/web
-      dockerfile: ../../docker/Dockerfile.web
+      context: ..
+      dockerfile: docker/Dockerfile.web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:9001/api}
     container_name: opensource_pulse_web
     restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - opensource_pulse
+
+  # Nginx edge: gzip + cache policy + security headers in front of `web`.
+  # This is what the deploy health check and browsers hit on ${WEB_PORT:-3001}.
+  web-edge:
+    image: nginx:1.27-alpine
+    container_name: opensource_pulse_web_edge
+    restart: unless-stopped
     ports:
-      - "${WEB_PORT:-3001}:3000"
-    env_file:
-      - development/.env.web
+      - "${WEB_PORT:-3001}:80"
     volumes:
-      - ../apps/web:/app
-      - /app/node_modules
-      - /app/.tanstack
+      - ./nginx.web.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - api
+      - web
     networks:
       - opensource_pulse
 

@@ -1,0 +1,8 @@
+# Keep the web build context small (context is the repo root).
+**/node_modules/
+**/dist/
+.git/
+docker/data/
+docker_data/
+apps/api/tmp/
+*.log

@@ -46,7 +46,10 @@ export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Admin Operations Center — OpenSource Pulse" },
-      { name: "description", content: "Dedicated operations and background scheduler control room." },
+      {
+        name: "description",
+        content: "Dedicated operations and background scheduler control room.",
+      },
     ],
   }),
   component: AdminPage,
@@ -71,7 +74,10 @@ function AdminPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Console & actions state
-  const [health, setHealth] = useState<{ status: string; url: string }>({ status: "checking", url: "" });
+  const [health, setHealth] = useState<{ status: string; url: string }>({
+    status: "checking",
+    url: "",
+  });
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([
     {
@@ -110,7 +116,9 @@ function AdminPage() {
     addLog(
       res.status === "ok" ? "success" : "error",
       "HEALTHCHECK",
-      res.status === "ok" ? `Backend API reachable at ${res.url}` : `Backend API unreachable at ${res.url}`,
+      res.status === "ok"
+        ? `Backend API reachable at ${res.url}`
+        : `Backend API unreachable at ${res.url}`,
     );
   };
 
@@ -152,7 +160,8 @@ function AdminPage() {
     try {
       const res = await fn();
       const duration = Date.now() - startTime;
-      const msg = res?.message || (res?.id ? `Created record ID #${res.id}` : "Executed successfully");
+      const msg =
+        res?.message || (res?.id ? `Created record ID #${res.id}` : "Executed successfully");
       addLog("success", name, `${msg} (${duration}ms)`);
     } catch (err: unknown) {
       const duration = Date.now() - startTime;
@@ -286,15 +295,20 @@ function AdminPage() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">RESTRICTED ACCESS</span>
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-accent">
+                    RESTRICTED ACCESS
+                  </span>
                   <span className="h-1.5 w-1.5 rounded-full bg-warning pulse-dot" />
                 </div>
-                <h1 className="text-[16px] font-semibold tracking-tight text-foreground">Admin Operations Gateway</h1>
+                <h1 className="text-[16px] font-semibold tracking-tight text-foreground">
+                  Admin Operations Gateway
+                </h1>
               </div>
             </div>
 
             <p className="text-[12px] text-muted-foreground leading-relaxed mb-6 font-mono">
-              Please authenticate with administrator credentials to manage background crawlers, calculations, and AI pipelines.
+              Please authenticate with administrator credentials to manage background crawlers,
+              calculations, and AI pipelines.
             </p>
 
             {loginError && (
@@ -392,13 +406,17 @@ function AdminPage() {
       <header className="h-16 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <img
-            src="/logo.png"
+            src="/logo-mark.webp"
             alt="OpenSource Pulse Logo"
+            width={510}
+            height={510}
             className="h-11 w-auto object-contain shrink-0 drop-shadow-[0_0_16px_rgba(249,115,22,0.4)]"
           />
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-bold tracking-tight text-foreground">OpenSource Pulse</span>
+              <span className="text-[15px] font-bold tracking-tight text-foreground">
+                OpenSource Pulse
+              </span>
               <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-accent/20 text-accent uppercase font-bold tracking-wider">
                 ADMIN OPS
               </span>
@@ -467,7 +485,8 @@ function AdminPage() {
               Operations & Crawling Command Center
             </h2>
             <p className="text-[12px] font-mono text-muted-foreground mt-0.5">
-              Execute on-demand repository ingestion, tech radar calculations, and AI intelligence synthesis.
+              Execute on-demand repository ingestion, tech radar calculations, and AI intelligence
+              synthesis.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -496,16 +515,24 @@ function AdminPage() {
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2.5">
                       <div className="h-8 w-8 rounded bg-secondary flex items-center justify-center text-foreground">
-                        <Icon className={`h-4 w-4 ${isLoading ? "animate-spin text-accent" : ""}`} />
+                        <Icon
+                          className={`h-4 w-4 ${isLoading ? "animate-spin text-accent" : ""}`}
+                        />
                       </div>
-                      <h3 className="text-[13px] font-semibold text-foreground tracking-tight">{op.title}</h3>
+                      <h3 className="text-[13px] font-semibold text-foreground tracking-tight">
+                        {op.title}
+                      </h3>
                     </div>
-                    <span className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${op.badgeColor}`}>
+                    <span
+                      className={`text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border ${op.badgeColor}`}
+                    >
                       {op.badge}
                     </span>
                   </div>
 
-                  <p className="text-[12px] text-muted-foreground leading-relaxed mt-2.5 mb-3">{op.description}</p>
+                  <p className="text-[12px] text-muted-foreground leading-relaxed mt-2.5 mb-3">
+                    {op.description}
+                  </p>
                   <div className="text-[10px] font-mono text-muted-foreground/80 bg-background/60 px-2 py-1 rounded border border-border/50 mb-4 inline-block">
                     {op.endpoint}
                   </div>
@@ -519,8 +546,8 @@ function AdminPage() {
                       isLoading
                         ? "bg-accent/20 text-accent cursor-wait"
                         : loadingAction
-                        ? "bg-secondary text-muted-foreground opacity-50 cursor-not-allowed"
-                        : "bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.99]"
+                          ? "bg-secondary text-muted-foreground opacity-50 cursor-not-allowed"
+                          : "bg-accent text-accent-foreground hover:opacity-90 active:scale-[0.99]"
                     }`}
                   >
                     <Icon className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -549,7 +576,9 @@ function AdminPage() {
               <h3 className="text-[11px] font-mono uppercase tracking-[0.16em] text-foreground font-semibold">
                 Live Operation Console & Logs
               </h3>
-              <span className="text-[10px] font-mono text-muted-foreground">({logs.length} events)</span>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                ({logs.length} events)
+              </span>
             </div>
 
             <button
@@ -563,29 +592,44 @@ function AdminPage() {
 
           <div className="p-4 bg-background font-mono text-[11px] max-h-64 overflow-y-auto space-y-2">
             {logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-3 py-0.5 hover:bg-card/40 px-1 rounded">
-                <span className="text-muted-foreground/70 shrink-0 text-[10px] pt-0.5">{log.timestamp}</span>
+              <div
+                key={log.id}
+                className="flex items-start gap-3 py-0.5 hover:bg-card/40 px-1 rounded"
+              >
+                <span className="text-muted-foreground/70 shrink-0 text-[10px] pt-0.5">
+                  {log.timestamp}
+                </span>
 
                 <span
                   className={`shrink-0 text-[9px] uppercase px-1.5 py-0.2 rounded font-semibold ${
                     log.type === "success"
                       ? "bg-success/20 text-success border border-success/30"
                       : log.type === "error"
-                      ? "bg-destructive/20 text-destructive border border-destructive/30"
-                      : log.type === "pending"
-                      ? "bg-accent/20 text-accent border border-accent/30"
-                      : "bg-secondary text-muted-foreground border border-border"
+                        ? "bg-destructive/20 text-destructive border border-destructive/30"
+                        : log.type === "pending"
+                          ? "bg-accent/20 text-accent border border-accent/30"
+                          : "bg-secondary text-muted-foreground border border-border"
                   }`}
                 >
                   {log.action}
                 </span>
 
                 <div className="flex-1 flex items-center gap-1.5">
-                  {log.type === "success" && <CheckCircle2 className="h-3 w-3 text-success shrink-0" />}
-                  {log.type === "error" && <AlertCircle className="h-3 w-3 text-destructive shrink-0" />}
-                  {log.type === "pending" && <RefreshCw className="h-3 w-3 text-accent animate-spin shrink-0" />}
-                  {log.type === "info" && <Activity className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  <span className={log.type === "error" ? "text-destructive" : "text-foreground/90"}>
+                  {log.type === "success" && (
+                    <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
+                  )}
+                  {log.type === "error" && (
+                    <AlertCircle className="h-3 w-3 text-destructive shrink-0" />
+                  )}
+                  {log.type === "pending" && (
+                    <RefreshCw className="h-3 w-3 text-accent animate-spin shrink-0" />
+                  )}
+                  {log.type === "info" && (
+                    <Activity className="h-3 w-3 text-muted-foreground shrink-0" />
+                  )}
+                  <span
+                    className={log.type === "error" ? "text-destructive" : "text-foreground/90"}
+                  >
                     {log.message}
                   </span>
                 </div>
@@ -617,31 +661,41 @@ function AdminPage() {
                   <td className="px-3 py-2 text-accent font-medium">sync:repositories</td>
                   <td className="px-3 py-2 text-muted-foreground">@every 6h</td>
                   <td className="px-3 py-2">Every 6 Hours</td>
-                  <td className="px-3 py-2 text-foreground/80">Fetches top trending GitHub repos & records timeseries snapshots</td>
+                  <td className="px-3 py-2 text-foreground/80">
+                    Fetches top trending GitHub repos & records timeseries snapshots
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 text-accent font-medium">health:calculate</td>
                   <td className="px-3 py-2 text-muted-foreground">0 2 * * *</td>
                   <td className="px-3 py-2">Daily at 02:00 AM</td>
-                  <td className="px-3 py-2 text-foreground/80">Recalculates 4-pillar health score for all tracked repositories</td>
+                  <td className="px-3 py-2 text-foreground/80">
+                    Recalculates 4-pillar health score for all tracked repositories
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 text-accent font-medium">radar:calculate</td>
                   <td className="px-3 py-2 text-muted-foreground">0 3 * * *</td>
                   <td className="px-3 py-2">Daily at 03:00 AM</td>
-                  <td className="px-3 py-2 text-foreground/80">Computes 30-day technology growth & quadrant classification</td>
+                  <td className="px-3 py-2 text-foreground/80">
+                    Computes 30-day technology growth & quadrant classification
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 text-accent font-medium">insight:generate</td>
                   <td className="px-3 py-2 text-muted-foreground">0 8 * * *</td>
                   <td className="px-3 py-2">Daily at 08:00 AM</td>
-                  <td className="px-3 py-2 text-foreground/80">Synthesizes LLM daily insight paragraph for homepage terminal</td>
+                  <td className="px-3 py-2 text-foreground/80">
+                    Synthesizes LLM daily insight paragraph for homepage terminal
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-3 py-2 text-accent font-medium">report:generate</td>
                   <td className="px-3 py-2 text-muted-foreground">0 9 * * 1</td>
                   <td className="px-3 py-2">Mondays at 09:00 AM</td>
-                  <td className="px-3 py-2 text-foreground/80">Generates comprehensive weekly AI intelligence ecosystem report</td>
+                  <td className="px-3 py-2 text-foreground/80">
+                    Generates comprehensive weekly AI intelligence ecosystem report
+                  </td>
                 </tr>
               </tbody>
             </table>
